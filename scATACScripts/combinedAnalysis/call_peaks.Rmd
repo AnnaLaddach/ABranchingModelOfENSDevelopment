@@ -1,0 +1,41 @@
+---
+title: "Call peaks"
+output: html_notebook
+---
+
+```{r}
+library(ArchR)
+addArchRThreads(threads = 6) 
+addArchRGenome("mm10")
+```
+
+```{r}
+project = loadArchRProject(path = "./output")
+```
+
+```{r}
+p1 <- plotEmbedding(ArchRProj = project, colorBy = "cellColData", name = "cell_type2", embedding = "UMAP_harmony2",) 
+
+p1
+```
+
+```{r}
+project <- addGroupCoverages(ArchRProj = project, groupBy = "cell_type2")
+```
+
+```{r}
+pathToMacs2 <- findMacs2()
+project <- addReproduciblePeakSet(
+    ArchRProj = project, 
+    groupBy = "cell_type2", 
+    pathToMacs2 = pathToMacs2
+)
+```
+
+```{r}
+project <- addPeakMatrix(project)
+```
+
+```{r}
+saveArchRProject(ArchRProj = project, outputDirectory = "./output", load = FALSE)
+```

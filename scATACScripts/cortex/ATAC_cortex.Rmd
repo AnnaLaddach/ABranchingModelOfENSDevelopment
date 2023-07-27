@@ -1,0 +1,228 @@
+---
+title: "Process cortical data"
+output: html_notebook
+---
+
+```{r}
+library(ArchR)
+```
+
+```{r}
+addArchRThreads(threads = 6) 
+addArchRGenome("mm10")
+```
+
+```{r}
+inputFiles = c("/home/anna/Dropbox (The Francis Crick)/Documents/single_cell_analysis/P50_mouse_cortex_ATAC/atac_v1_adult_brain_fresh_5k_fragments.tsv.gz")
+```
+
+
+
+```{r}
+ArrowFiles <- createArrowFiles(
+  inputFiles = inputFiles,
+  sampleNames = c("cortex"),
+  minTSS = 4, #Dont set this too high because you can always increase later
+  minFrags = 1000, 
+  addTileMat = TRUE,
+  addGeneScoreMat = TRUE
+)
+```
+
+```{r}
+doubScores <- addDoubletScores(
+    input = ArrowFiles,
+    k = 10, #Refers to how many cells near a "pseudo-doublet" to count.
+    knnMethod = "UMAP", #Refers to the embedding to use for nearest neighbor search with doublet projection.
+    LSIMethod = 1,
+    outDir = "./output"
+)
+```
+```{r}
+ArrowFiles = c("cortex.arrow")
+```
+
+
+```{r}
+project <- ArchRProject(
+  ArrowFiles = ArrowFiles, 
+  outputDirectory = "./output",
+  copyArrows = TRUE #This is recommened so that if you modify the Arrow files you have an original copy for later usage.
+)
+```
+
+```{r}
+project
+paste0("Memory Size = ", round(object.size(project) / 10^6, 3), " MB")
+```
+
+```{r}
+getAvailableMatrices(project)
+head(project$cellNames)
+head(project$TSSEnrichment)
+```
+
+```{r}
+df <- getCellColData(project, select = c("log10(nFrags)", "TSSEnrichment"))
+
+p <- ggPoint(
+    x = df[,1], 
+    y = df[,2], 
+    colorDensity = TRUE,
+    continuousSet = "sambaNight",
+    xlabel = "Log10 Unique Fragments",
+    ylabel = "TSS Enrichment",
+    xlim = c(log10(500), quantile(df[,1], probs = 0.99)),
+    ylim = c(0, quantile(df[,2], probs = 0.99))
+) + geom_hline(yintercept = 4, lty = "dashed") + geom_vline(xintercept = 3, lty = "dashed")
+
+p
+```
+
+```{r}
+project = project[project$nFrags > 10000,]
+project <- filterDoublets(project)
+```
+
+
+```{r}
+project <- addIterativeLSI(
+    ArchRProj = project,
+    useMatrix = "TileMatrix", 
+    name = "IterativeLSI", 
+    iterations = 2, 
+    varFeatures = 25000, 
+    dimsToUse = 1:30
+)
+```
+
+```{r}
+project <- addUMAP(ArchRProj = project, reducedDims = "IterativeLSI")
+
+p1 <- plotEmbedding(ArchRProj = project, colorBy = "cellColData", name = "Sample", embedding = "UMAP",) 
+
+p1
+```
+
+
+
+```{r}
+project <- addClusters(
+    input = project,
+    reducedDims = "IterativeLSI",
+    method = "Seurat",
+    name = "Clusters",
+    resolution = 1
+)
+```
+```{r}
+table(project$Clusters)
+```
+
+```{r}
+p <- plotEmbedding(ArchRProj = project, embedding = "UMAP", colorBy = "cellColData", name = "Clusters") 
+
+plotPDF(p,name = "UMAP_cluster.pdf", ArchRProj = project)
+```
+
+
+```{r}
+seRNA = readRDS("/home/anna/Dropbox (The Francis Crick)/Documents/single_cell_analysis/P50_mouse_cortex_ATAC/allen_brain.rds")
+```
+
+```{r}
+project <- addGeneIntegrationMatrix(
+    ArchRProj = project, 
+    useMatrix = "GeneScoreMatrix",
+    matrixName = "GeneIntegrationMatrix",
+    reducedDims = "IterativeLSI",
+    seRNA = seRNA,
+    addToArrow = FALSE,
+    groupRNA = "subclass",
+    nameCell = "predictedCell_Un",
+    nameGroup = "predictedGroup_Un",
+    nameScore = "predictedScore_Un"
+)
+```
+```{r}
+cM <- as.matrix(confusionMatrix(project$Clusters, project$predictedGroup_Un))
+preClust <- colnames(cM)[apply(cM, 1 , which.max)]
+cbind(preClust, rownames(cM)) #Assignments
+```
+
+
+```{r}
+p1 <- plotEmbedding(
+    project, 
+    colorBy = "cellColData", 
+    name = "predictedGroup_Un", 
+    embedding = "UMAP",
+
+)
+
+plotPDF(p1,name = "UMAP_predicted_labels.pdf", ArchRProj = project)
+```
+
+
+```{r}
+write.csv(project$cellNames[project$predictedGroup_Un =="Astro"], "astrocytes.csv", quote = F, row.names = F)
+
+
+write.csv(project$cellNames[project$predictedGroup_Un =="Oligo"], "oligodendrocytes.csv", quote = F, row.names = F)
+```
+
+
+
+
+
+```{r}
+saveArchRProject(ArchRProj = project, outputDirectory = "./output", load = FALSE)
+```
+```{r}
+project = loadArchRProject(path = "./output")
+```
+
+```{r}
+seRNA = readRDS("/home/anna/Dropbox (The Francis Crick)/Documents/single_cell_analysis/P50_mouse_cortex_ATAC/allen_brain.rds")
+```
+
+```{r}
+project <- addGeneIntegrationMatrix(
+    ArchRProj = project, 
+    useMatrix = "GeneScoreMatrix",
+    matrixName = "GeneIntegrationMatrix",
+    reducedDims = "IterativeLSI",
+    seRNA = seRNA,
+    addToArrow = FALSE,
+    groupRNA = "cluster",
+    nameCell = "predictedCell_Un",
+    nameGroup = "predictedGroup_Un",
+    nameScore = "predictedScore_Un"
+)
+```
+
+```{r}
+p1 <- plotEmbedding(
+    project, 
+    colorBy = "cellColData", 
+    name = "predictedGroup_Un", 
+    embedding = "UMAP",
+
+)
+
+# plotPDF(p1,name = "UMAP_predicted_labels_clusters.pdf", ArchRProj = project)
+```
+
+```{r}
+write.csv(project$cellNames[project$predictedGroup_Un =="Astro Aqp4"], "astrocytes2.csv", quote = F, row.names = F)
+
+
+write.csv(project$cellNames[project$predictedGroup_Un =="Oligo Serpinb1a"], "oligodendrocytes2.csv", quote = F, row.names = F)
+
+
+write.csv(project$cellNames[project$predictedGroup_Un =="OPC Pdgfra Grm5" ], "OPCs.csv", quote = F, row.names = F)
+```
+
+```{r}
+saveArchRProject(ArchRProj = project, outputDirectory = "./output", load = FALSE)
+```

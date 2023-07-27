@@ -1,0 +1,64 @@
+---
+title: "Neural Crest"
+output: html_notebook
+---
+
+```{r}
+library(Seurat)
+library(tidyverse)
+library(RColorBrewer)
+
+
+#set up colors
+colors = colorRampPalette(brewer.pal(11,'Spectral')[-6])(100)
+```
+
+
+```{r}
+counts = read.table('../../data/GSE129114_E9.5_trunk_Wnt1_counts.txt',stringsAsFactors = F)
+pseudotime = read.csv("../../data/Table S3.csv",stringsAsFactors = F)
+
+tSNE = read.csv("../../data/tSNE_main_Fig1.txt",sep ='',stringsAsFactors = F, header = F)
+counts_filtered = counts[colnames(counts) %in% tSNE$V1]
+
+
+rownames(pseudotime) = pseudotime$X
+pt_anno = pseudotime[colnames(counts_filtered),]
+
+
+```
+
+
+
+```{r}
+data = CreateSeuratObject(counts = counts_filtered)
+data$pt = pt_anno$time
+data$seg = pt_anno$col.id
+data = NormalizeData(data,scale.factor = 1e6)
+```
+```{r}
+data = FindVariableFeatures(data)
+```
+
+```{r}
+all.genes <- rownames(data)
+data <- ScaleData(data, features = all.genes)
+
+data <- RunPCA(data, features = VariableFeatures(object = data))
+
+
+DimPlot(data, reduction = "pca")
+```
+
+```{r}
+DimPlot(data, reduction = "pca", group.by = "seg")
+```
+```{r}
+saveRDS(data,"../../output/neural_crest/neural_crest.rds")
+```
+
+
+
+
+
+

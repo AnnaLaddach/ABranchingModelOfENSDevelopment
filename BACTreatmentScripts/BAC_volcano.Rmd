@@ -1,0 +1,105 @@
+---
+title: "Volcano Plots for BAC treatment data"
+output: html_notebook
+---
+
+
+```{r}
+dat = read.csv('../../data/vpl277.csv', stringsAsFactors = F)
+```
+
+```{r}
+antler_obj= readRDS("../../output/gene_modules/all_data/antler_obj.RDS")
+modules = antler_obj$topCorr_DR$genemodules 
+```
+
+```{r}
+genes = modules[[16]][modules[[16]] %in% dat$mgi_symbol]
+```
+
+```{r}
+library(EnhancedVolcano)
+```
+
+```{r}
+make_volcano = function(module){
+        genes = modules[[module]]
+        selected = dat[dat$mgi_symbol %in% genes,]
+        selected = selected[!(selected$padj_ChemGliaBAC_vs_ChemGliaCtrl ==0 & selected$logFC_ChemGliaBAC_vs_ChemGliaCtrl == 0),]
+        pdf(paste0("../../output/BAC_treatment/chem_vs_control_volcano_RNA_mod",module,".pdf"),width = 6, height = 7)
+        p = EnhancedVolcano(selected,
+                        x = 'logFC_ChemGliaBAC_vs_ChemGliaCtrl', y = 'padj_ChemGliaBAC_vs_ChemGliaCtrl',
+                        lab = selected$mgi_symbol,
+                        xlab = 'log2FC',
+                        ylab = bquote(~-Log[10]~adjusted~italic(P)),
+                       # xlim = c(-10,10),
+                        boxedLabels = F,
+                        drawConnectors = F,
+                        pCutoff = 0.01,
+                        FCcutoff = 1,
+                       pointSize = 3,
+                        labSize = 6.0,
+                        title = '',
+                        subtitle = '',
+                         caption = ''
+  )  
+        print(p)
+
+dev.off()
+
+print(dim(selected[selected$logFC_ChemGliaBAC_vs_ChemGliaCtrl > 1 & selected$padj_ChemGliaBAC_vs_ChemGliaCtrl < 0.01,]))
+print(dim(selected[selected$logFC_ChemGliaBAC_vs_ChemGliaCtrl < -1 & selected$padj_ChemGliaBAC_vs_ChemGliaCtrl < 0.01,]))
+
+
+print(dim(selected[selected$logFC_ChemGliaBAC_vs_ChemGliaCtrl > 0 & selected$padj_ChemGliaBAC_vs_ChemGliaCtrl  < 0.01,]))
+print(dim(selected[selected$logFC_ChemGliaBAC_vs_ChemGliaCtrl < 0 & selected$padj_ChemGliaBAC_vs_ChemGliaCtrl  < 0.01,]))
+}
+```
+
+```{r}
+for (module in c(16,17,18,81,83,71,79,74,75,78)){
+        make_volcano(module)
+}
+```
+
+```{r}
+make_volcano2 = function(module){
+        genes = modules[[module]]
+        selected = dat[dat$mgi_symbol %in% genes,]
+        pdf(paste0("../../output/BAC_treatment/chem_vs_worm_volcano_RNA_mod",module,".pdf"),width = 6, height = 7)
+        p = EnhancedVolcano(selected,
+                        x = 'logFC_ChemGliaBAC_vs_WormEnGliaInf', y = 'padj_ChemGliaBAC_vs_WormEnGliaInf',
+                        lab = selected$mgi_symbol,
+                        xlab = 'log2FC',
+                        ylab = bquote(~-Log[10]~adjusted~italic(P)),
+                       # xlim = c(-10,10),
+                        boxedLabels = F,
+                        drawConnectors = F,
+                        pCutoff = 0.01,
+                        FCcutoff = 1,
+                       pointSize = 3,
+                        labSize = 6.0,
+                        title = '',
+                        subtitle = '',
+                         caption = ''
+  )  
+        print(p)
+
+dev.off()
+
+print(dim(selected[selected$logFC_ChemGliaBAC_vs_WormEnGliaInf > 1 & selected$padj_ChemGliaBAC_vs_WormEnGliaInf < 0.01,]))
+print(dim(selected[selected$logFC_ChemGliaBAC_vs_WormEnGliaInf < -1 & selected$padj_ChemGliaBAC_vs_WormEnGliaInf < 0.01,]))
+
+
+print(dim(selected[selected$logFC_ChemGliaBAC_vs_WormEnGliaInf > 0 & selected$padj_ChemGliaBAC_vs_WormEnGliaInf  < 0.01,]))
+print(dim(selected[selected$logFC_ChemGliaBAC_vs_WormEnGliaInf < 0 & selected$padj_ChemGliaBAC_vs_WormEnGliaInf  < 0.01,]))
+}
+```
+
+```{r}
+for (module in c(16,17,18,81,83,71,79,74,75,78)){
+        make_volcano2(module)
+}
+```
+
+

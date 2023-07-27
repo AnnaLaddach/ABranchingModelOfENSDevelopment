@@ -1,0 +1,81 @@
+---
+title: "Make volcano plots for in vitro data"
+output: html_notebook
+---
+
+
+
+```{r}
+dat = read.csv('../../data/vpl195A.result.table.csv', stringsAsFactors = F)
+```
+
+```{r}
+antler_obj= readRDS("../../output/gene_modules/all_data/antler_obj.RDS")
+modules = antler_obj$topCorr_DR$genemodules 
+```
+
+```{r}
+library(EnhancedVolcano)
+```
+
+```{r}
+selected = dat[dat$mgi_symbol %in% genes,c("mgi_symbol",'logFC_DIV0C_vs_DIV4','lg10p_DIV0C_vs_DIV4')]
+```
+
+```{r}
+dat$logFC_DIV0C_vs_DIV4 = as.numeric(dat$logFC_DIV0C_vs_DIV4)
+dat$lg10p_DIV0C_vs_DIV4 = as.numeric(dat$lg10p_DIV0C_vs_DIV4)
+```
+
+```{r}
+dat$logFC_DIV0C_vs_DIV4 = -dat$logFC_DIV0C_vs_DIV4
+```
+
+```{r}
+make_volcano = function(module){
+        genes = modules[[module]]
+        selected = dat[dat$mgi_symbol %in% genes,]
+        write.csv(selected,paste0("../../source_data/Fig5j_module", module,".csv"), row.names = F)
+        pdf(paste0("../../output/in_vitro/volcano_RNA_mod",module,"_revised_v3.pdf"),width = 6, height = 7)
+         p = EnhancedVolcano(selected,
+                        x ='logFC_DIV0C_vs_DIV4', y = 'padj_DIV0C_vs_DIV4',
+                        lab = selected$mgi_symbol,
+                        xlab = 'log2FC',
+                        ylab = bquote(~-Log[10]~adjusted~italic(P)),
+                       # xlim = c(-10,10),
+                        boxedLabels = F,
+                        drawConnectors = F,
+                        pCutoff = 0.01,
+                        FCcutoff = 1,
+                       pointSize = 3,
+                        labSize = 6.0,
+                        title = '',
+                        subtitle = '',
+                         caption = ''
+  )  
+        print(p)
+
+dev.off()
+
+print(dim(selected[selected$logFC_DIV0C_vs_DIV4 > 1 & selected$padj_DIV0C_vs_DIV4 < 0.01,]))
+print(dim(selected[selected$logFC_DIV0C_vs_DIV4 < -1 & selected$padj_DIV0C_vs_DIV4 < 0.01,]))
+
+
+print(dim(selected[selected$logFC_DIV0C_vs_DIV4 > 0 & selected$padj_DIV0C_vs_DIV4 < 0.01,]))
+print(dim(selected[selected$logFC_DIV0C_vs_DIV4 < 0 & selected$padj_DIV0C_vs_DIV4 < 0.01,]))
+}
+```
+
+```{r}
+for (module in c(16,81,75)){
+        make_volcano(module)
+}
+```
+
+
+```{r}
+for (module in c(16,81,83,71,79,74,75,78)){
+        make_volcano(module)
+}
+```
+

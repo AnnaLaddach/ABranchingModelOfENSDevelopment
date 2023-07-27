@@ -1,0 +1,50 @@
+---
+title: "Write DA peaks to file"
+output: html_notebook
+---
+
+```{r}
+library(ArchR)
+```
+
+```{r}
+da_peaks = readRDS("DA_peaks.rds")
+```
+
+```{r}
+sig_peaks<- getMarkers(da_peaks$EGC_autonomic, cutOff = "FDR <= 0.01 & abs(Log2FC) >= 1")$EGC
+```
+
+```{r}
+head(sig_peaks)
+```
+
+```{r}
+loci = as.data.frame(ranges(project@peakSet))
+
+project@peakSet$id = paste(seqnames(project@peakSet),loci$start,loci$end,sep = "_")
+
+peaks = project@peakSet
+
+
+annotate_peaks = function(da_peaks,peaks){
+  da_peaks$id = paste(da_peaks$seqnames, da_peaks$start,da_peaks$end,sep = "_")
+  selected_peaks = peaks[peaks$id %in% da_peaks$id,]
+  selected_peaks = as.data.frame(selected_peaks, row.names = "id")
+  selected_peaks_anno = merge(selected_peaks, da_peaks, by.x = 0, by.y = "id")
+  return(selected_peaks_anno)
+}
+```
+
+```{r}
+sig_peaks = annotate_peaks(sig_peaks,project@peakSet)
+```
+
+```{r}
+sig_peaks_promoter = sig_peaks[sig_peaks$peakType == "Promoter",]
+```
+
+```{r}
+write.csv(sig_peaks_promoter, "da_EGCs_promoter_sig_peaks_promoter.csv", row.names = F)
+```
+

@@ -1,0 +1,43 @@
+---
+title: "Jack straw - optimum PCs"
+output: html_notebook
+---
+
+```{r}
+library(Seurat)
+
+#read in data
+dat = read.csv('../../output/adata_hvar.csv')
+mat = as.matrix(dat[2:ncol(dat)])
+rownames(mat) = dat$index
+
+#create seurat object
+si = CreateSeuratObject(mat)
+```
+
+
+```{r}
+#run PCA
+si =  ScaleData(si, features = all.genes,do.scale = F)
+si = RunPCA(si, features = rownames(mat),do.scale =F)
+```
+
+
+```{r}
+#run Jack Straw and plot results
+si = JackStraw(si, num.replicate = 1000)
+si = ScoreJackStraw(si, dims = 1:20)
+
+pdf("../../output/PC_plots.pdf")
+JackStrawPlot(si, dims = 1:20)
+ElbowPlot(si)
+dev.off()
+```
+
+```{r}
+pdf('../../output/dim_heatmaps/dim_heatmaps.pdf')
+for (i in 1:30){
+  DimHeatmap(object = si, dims = i, reduction = "pca", cells = 200, balanced = TRUE)
+}
+dev.off()
+```

@@ -1,0 +1,151 @@
+---
+title: "Analyse Homer motif accessibility"
+output: html_notebook
+---
+
+```{r}
+library(ArchR)
+addArchRThreads(threads = 6) 
+addArchRGenome("mm10")
+```
+
+```{r}
+project = loadArchRProject(path = "./output")
+```
+
+```{r}
+project <- addMotifAnnotations(ArchRProj = project, motifSet = "homer", name = "homer_motifs")
+```
+
+```{r}
+plot_motifs = function(da_peaks,filename, cutoff){
+
+  motifsUp <- peakAnnoEnrichment(
+      seMarker = da_peaks,
+      ArchRProj = project,
+      peakAnnotation = "homer_motifs",
+      cutOff = cutoff
+    )
+  
+  df <- data.frame(TF = rownames(motifsUp), mlog10Padj = assay(motifsUp)[,1])
+  print(head(df))
+  df <- df[order(df$mlog10Padj, decreasing = TRUE),]
+  df$label = ""
+  df$label[1:20] = df$TF[1:20]
+  df$rank <- seq_len(nrow(df))
+  
+  write.csv(df,paste0(filename, ".csv"))
+  
+  ggUp <- ggplot(df, aes(rank, mlog10Padj, color = mlog10Padj)) + 
+    geom_point(size = 1) +
+    ggrepel::geom_label_repel(
+          data = df[rev(seq_len(30)), ], aes(x = rank, y = mlog10Padj, label = label), 
+          size = 1.5,
+          nudge_x = 2,
+          color = "black",
+          max.overlaps = 40
+    ) + theme_ArchR() + 
+    ylab("-log10(P-adj) Motif Enrichment") + 
+    xlab("Rank Sorted TFs Enriched") +
+    scale_color_gradientn(colors = paletteContinuous(set = "comet"))
+  
+  plotPDF(ggUp, name = filename, width = 5, height =5, ArchRProj = project, addDOC = FALSE)
+}
+```
+
+```{r}
+plot_motifs = function(da_peaks,filename, cutoff){
+
+  motifsUp <- peakAnnoEnrichment(
+      seMarker = da_peaks,
+      ArchRProj = project,
+      peakAnnotation = "homer_motifs",
+      cutOff = cutoff
+    )
+  
+  df <- data.frame(TF = rownames(motifsUp), mlog10Padj = assay(motifsUp)[,1])
+  print(head(df))
+  df <- df[order(df$mlog10Padj, decreasing = TRUE),]
+  df$label = ""
+  df$label[1:20] = df$TF[1:20]
+  df$rank <- seq_len(nrow(df))
+  
+  write.csv(df,paste0(filename, ".csv"))
+  
+  ggUp <- ggplot(df, aes(rank, mlog10Padj, color = mlog10Padj)) + 
+    geom_point(size = 1) +
+    ggrepel::geom_label_repel(
+          data = df[rev(seq_len(30)), ], aes(x = rank, y = mlog10Padj, label = label), 
+          size = 1.5,
+          nudge_x = 2,
+          color = "black",
+          max.overlaps = 40
+    ) + theme_ArchR() + 
+    ylab("-log10(P-adj) Motif Enrichment") + 
+    xlab("Rank Sorted TFs Enriched") +
+    scale_color_gradientn(colors = paletteContinuous(set = "comet"))
+  
+  plotPDF(ggUp, name = filename, width = 5, height =5, ArchRProj = project, addDOC = FALSE)
+}
+```
+
+```{r}
+
+library(extrafont)
+plot_motifs2 = function(da_peaks,filename, cutoff){
+
+  motifsUp <- peakAnnoEnrichment(
+      seMarker = da_peaks,
+      ArchRProj = project,
+      peakAnnotation = "homer_motifs",
+      cutOff = cutoff
+    )
+  
+  df <- data.frame(TF = rownames(motifsUp), mlog10Padj = assay(motifsUp)[,1])
+  print(head(df))
+  df <- df[order(df$mlog10Padj, decreasing = TRUE),]
+  df$label = ""
+  selected_tfs =c("Fosl2.bZIP_86","Jun.AP1.bZIP_141","AP.1.bZIP_1","ISRE.IRF_140","IRF1.IRF_136","bZIP.IRF.bZIP.IRF_29","NF1.CTF_176","NF1.halfsite.CTF_175",
+                                "AP.2alpha.AP2_3","AP.2gamma.AP2_2","TR4.NR..DR1_298",
+"Maz.Zf_160","RXR.NR..DR1_251",
+"Sox10.HMG_259","Sox2.HMG_261")
+  df$label[df$TF %in% selected_tfs] = df$TF[df$TF %in% selected_tfs]
+  #print(df$label)
+  df$rank <- seq_len(nrow(df))
+  
+  write.csv(df,paste0(filename, ".csv"))
+  
+  ggUp <- ggplot(df, aes(rank, mlog10Padj, color = mlog10Padj)) + 
+    geom_point(size = 1) +
+    ggrepel::geom_label_repel(
+          data = df[rev(seq_len(30)), ], aes(x = rank, y = mlog10Padj, label = label), 
+          size = 6,
+          nudge_x = 2,
+          color = "black",
+          max.overlaps = 40
+    ) + theme_ArchR() + 
+    ylab("-log10(P-adj) Motif Enrichment") + 
+    xlab("Rank Sorted TFs Enriched") +
+    scale_color_gradientn(colors = paletteContinuous(set = "comet"))+
+    theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 20)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 20)) + theme(text = element_text(family = "Helvetica", color = "black",size = 20)) + theme(text = element_text(family = "Helvetica", color = "black",size = 20)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 20)) 
+  plotPDF(ggUp, name = filename, width = 8, height =8, ArchRProj = project, addDOC = FALSE)
+}
+```
+
+```{r}
+da_peaks = readRDS("DA_peaks.rds")
+```
+
+```{r}
+plot_motifs2(da_peaks$EGC_autonomic,"motifsUpEGCsVAutonomic_selected","FDR <= 0.01 & Log2FC >= 1")
+plot_motifs2(da_peaks$EGC_autonomic,"motifsUpAutonomicVEGCs_selected","FDR <= 0.01 & Log2FC <= -1")
+```
+
+```{r}
+plot_motifs(da_peaks$EGC_autonomic,"motifsUpEGCsVAutonomic_formatted","FDR <= 0.01 & Log2FC >= 1")
+plot_motifs(da_peaks$EGC_autonomic,"motifsUpAutonomicVEGCs_formatted","FDR <= 0.01 & Log2FC <= -1")
+```
+
+```{r}
+saveArchRProject(ArchRProj = project, outputDirectory = "./output", load = FALSE)
+```

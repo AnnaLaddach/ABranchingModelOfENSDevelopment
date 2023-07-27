@@ -1,0 +1,56 @@
+---
+title: "Differential accessibility - peaks"
+output: html_notebook
+---
+
+```{r}
+library(ArchR)
+addArchRThreads(threads = 6) 
+addArchRGenome("mm10")
+```
+
+```{r}
+project = loadArchRProject(path = "./output")
+```
+
+```{r}
+da_peaks = list()
+celltypes = unique(project$cell_type2)
+
+num_celltypes = length(celltypes)
+for (i in 1:(num_celltypes-1)){
+  for (j in i:num_celltypes){
+    if (i != j){
+      print(celltypes[i])
+      print(celltypes[j])
+      da_peaks[[paste(celltypes[i],celltypes[j], sep = '_')]] = getMarkerFeatures(
+        ArchRProj = project,  
+        useMatrix = "PeakMatrix",
+        groupBy = "cell_type2",
+        testMethod = "wilcoxon",
+        bias = c("TSSEnrichment", "log10(nFrags)"),
+        useGroups = celltypes[i],
+        bgdGroups = celltypes[j]
+    )
+    }
+  }
+}
+```
+
+```{r}
+loci = as.data.frame(ranges(project@peakSet))
+```
+
+```{r}
+project@peakSet$id = paste(project$seqnames,loci$start,loci$end,sep = "_")
+```
+
+```{r}
+saveRDS(da_peaks, "DA_peaks.rds")
+```
+
+
+```{r}
+saveArchRProject(ArchRProj = project, outputDirectory = "./output", load = FALSE)
+```
+

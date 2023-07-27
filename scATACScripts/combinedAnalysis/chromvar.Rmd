@@ -1,0 +1,181 @@
+---
+title: "Chromvar analysis"
+output: html_notebook
+---
+
+```{r}
+library(ArchR)
+addArchRThreads(threads = 6) 
+addArchRGenome("mm10")
+```
+
+```{r}
+project = loadArchRProject(path = "./output")
+```
+
+```{r}
+project <- addBgdPeaks(project)
+```
+
+```{r}
+project <- addDeviationsMatrix(
+  ArchRProj = project, 
+  peakAnnotation = "homer_motifs",
+  force = TRUE
+)
+```
+
+```{r}
+getAvailableMatrices(project)
+```
+
+```{r}
+plotVarDev <- getVarDeviations(project, name = "homer_motifsMatrix", plot = TRUE)
+```
+
+```{r}
+plotVarDev
+plotPDF(plotVarDev, name = "Variable-Motif-Deviation-Scores", width = 15, height = 15, ArchRProj = project, addDOC = FALSE)
+```
+
+```{r}
+deviations = plotVarDev <- getVarDeviations(project, name = "homer_motifsMatrix", plot = F)
+```
+
+```{r}
+write.csv(deviations, "homer_deviations.csv", row.names = F)
+```
+
+```{r}
+da = list()
+celltypes = unique(project$cell_type2)
+
+num_celltypes = length(celltypes)
+for (i in 1:(num_celltypes-1)){
+  for (j in i:num_celltypes){
+    da[[paste(celltypes[i],celltypes[j], sep = '_')]] = getMarkerFeatures(
+      ArchRProj = project,  
+      useMatrix = "homer_motifsMatrix",
+      groupBy = "cell_type2",
+      testMethod = "wilcoxon",
+      bias = c("TSSEnrichment", "log10(nFrags)"),
+      useGroups = celltypes[i],
+      bgdGroups = celltypes[j]
+    )
+  }
+}
+
+```
+
+```{r}
+EGCs_autonomic = getMarkers(da$EGC_autonomic, cutOff = "FDR <= 0.01 & Log2FC >= 0")$EGCs
+autonomic_EGCs = getMarkers(da$EGC_autonomic, cutOff = "FDR <= 0.01 & Log2FC <= -0")$EGCs
+```
+
+```{r}
+motifs <- c("Sox10", "Irf","AP.1","Ascl1")
+markerMotifs <- getFeatures(project, select = paste(motifs, collapse="|"), useMatrix = "homer_motifsMatrix")
+markerMotifs
+
+markerMotifs <- grep("z:", markerMotifs, value = TRUE)
+```
+
+```{r}
+p <- plotEmbedding(
+    ArchRProj = project, 
+    colorBy = "homer_motifsMatrix", 
+    name = markerMotifs, 
+    embedding = "UMAP_harmony",
+    imputeWeights = getImputeWeights(project)
+)
+
+plotPDF(p,name = "UMAP_selected_motifs.pdf", ArchRProj = project)
+```
+
+```{r}
+p <- plotEmbedding(
+    ArchRProj = project, 
+    colorBy = "MotifMatrix", 
+    name = markerMotifs, 
+    embedding = "UMAP_harmony",
+    imputeWeights = getImputeWeights(project)
+)
+
+plotPDF(p,name = "UMAP_selected_motifs.pdf", ArchRProj = project)
+```
+
+```{r}
+p <- plotEmbedding(
+    ArchRProj = project, 
+    colorBy = "homer_motifsMatrix", 
+    name = c("z:IRF1.IRF_136"), 
+    embedding = "UMAP_harmony",
+    imputeWeights = getImputeWeights(project)
+)
+
+plotPDF(p,name = "UMAP_IRF1.IRF_136.pdf", ArchRProj = project)
+```
+
+```{r}
+p <- plotEmbedding(
+    ArchRProj = project, 
+    colorBy = "homer_motifsMatrix", 
+    name = c("z:Sox10.HMG_259"), 
+    embedding = "UMAP_harmony",
+    imputeWeights = getImputeWeights(project)
+)
+
+plotPDF(p,name = "UMAP_Sox10.pdf", ArchRProj = project)
+```
+
+```{r}
+motifs <- deviations$name[1:20]
+markerMotifs <- getFeatures(project, select = paste(motifs, collapse="|"), useMatrix = "homer_motifsMatrix")
+markerMotifs
+
+markerMotifs <- grep("z:", markerMotifs, value = TRUE)
+```
+
+```{r}
+p <- plotEmbedding(
+    ArchRProj = project, 
+    colorBy = "homer_motifsMatrix", 
+    name = markerMotifs, 
+    embedding = "UMAP_harmony",
+    imputeWeights = getImputeWeights(project)
+)
+
+plotPDF(p,name = "UMAP_selected_motifs_top20.pdf", ArchRProj = project)
+```
+
+```{r}
+markerGenes  <- c(
+    "Phox2b"
+  )
+
+p <- plotBrowserTrack(
+    ArchRProj = project, 
+    groupBy = "cell_type2", 
+    geneSymbol = markerGenes, 
+    upstream = 10000,
+    downstream = 10000,
+    loops = NULL,
+    useGroups = c("autonomic","EGC","oligodendrocytes","astrocytes")
+)
+
+plotPDF(plotList = p, 
+    name = "Phox2b.pdf", 
+    ArchRProj = project, 
+    addDOC = FALSE, width = 4, height = 3)
+```
+
+```{r}
+p <- plotEmbedding(ArchRProj = project, embedding = "UMAP_harmony", colorBy = "cellColData", name = "cell_type2") 
+
+plotPDF(p,name = "UMAP_celltype_harmony.pdf", ArchRProj = project)
+```
+
+```{r}
+saveArchRProject(ArchRProj = project, outputDirectory = "./output", load = FALSE)
+```
+

@@ -1,0 +1,406 @@
+---
+title: "Analyse peaks"
+output: html_notebook
+---
+
+```{r}
+library(ArchR)
+```
+
+```{r}
+project = loadArchRProject(path = "./output")
+```
+
+```{r}
+length(unique(project@peakSet$nearestGene))
+```
+```{r}
+antler_obj= readRDS("/home/anna/Dropbox (The Francis Crick)/Documents/single_cell_analysis/in_vivo_SI_all/final_results_and_scripts/output/gene_modules/all_data/antler_obj.RDS")
+modules = antler_obj$topCorr_DR$genemodules
+```
+
+```{r}
+da_peaks = readRDS("DA_peaks.rds")
+```
+
+```{r}
+sig_peaks<- getMarkers(da_peaks$EGC_autonomic, cutOff = "FDR <= 0.01 & abs(Log2FC) >= 1")$EGC
+```
+
+```{r}
+head(sig_peaks)
+```
+
+```{r}
+
+
+loci = as.data.frame(ranges(project@peakSet))
+
+project@peakSet$id = paste(seqnames(project@peakSet),loci$start,loci$end,sep = "_")
+
+peaks = project@peakSet
+
+
+annotate_peaks = function(da_peaks,peaks){
+  da_peaks$id = paste(da_peaks$seqnames, da_peaks$start,da_peaks$end,sep = "_")
+  selected_peaks = peaks[peaks$id %in% da_peaks$id,]
+  selected_peaks = as.data.frame(selected_peaks, row.names = "id")
+  selected_peaks_anno = merge(selected_peaks, da_peaks, by.x = 0, by.y = "id")
+  return(selected_peaks_anno)
+}
+```
+
+```{r}
+sig_peaks = annotate_peaks(sig_peaks,project@peakSet)
+```
+
+
+```{r}
+head(sig_peaks)
+```
+
+```{r}
+
+get_module_stats = function(module){
+  mod_peaks = sig_peaks[sig_peaks$nearestGene %in% modules[[module]],]
+  mod_peaks_up = mod_peaks[mod_peaks$Log2FC >= 1,]
+  print(table(mod_peaks_up$peakType)/length(mod_peaks_up$peakType))
+  mod_peaks_down = mod_peaks[mod_peaks$Log2FC <= -1,]
+  print(table(mod_peaks_down$peakType)/length(mod_peaks_down$peakType))
+}
+```
+
+```{r}
+module = 16
+mod_peaks = sig_peaks[sig_peaks$nearestGene %in% modules[[module]],]
+mod_peaks_up = mod_peaks[mod_peaks$Log2FC >= 1,]
+print(table(mod_peaks_up$peakType)/length(mod_peaks_up$peakType))
+mod_peaks_down = mod_peaks[mod_peaks$Log2FC <= -1,]
+
+mod_peaks_up$nearestGene
+mod_peaks_down$nearestGene
+```
+```{r}
+unique(mod_peaks_down[mod_peaks_down$peakType == "Promoter",]$nearestGene)
+```
+
+```{r}
+unique(mod_peaks_down[mod_peaks_down$peakType %in% c("Exonic","Promoter"),]$nearestGene)
+```
+
+```{r}
+unique(mod_peaks_up[mod_peaks_up$peakType == "Promoter",]$nearestGene)
+```
+
+```{r}
+get_module_stats(16)
+```
+
+```{r}
+get_module_stats(81)
+```
+
+```{r}
+get_module_stats(75)
+```
+
+```{r}
+get_module_stats(74)
+```
+```{r}
+module_names = c(16,17,18,83,81,79,71,74,75,78)
+```
+
+```{r}
+results = data.frame(module = character(), cell_type = character(), peak_type = character(), percentage = numeric())
+for (module in c(16,17,18,81,83,71,79,74,75,78)){
+  mod_peaks = sig_peaks[sig_peaks$nearestGene %in% modules[[module]],]
+  mod_peaks_up = mod_peaks[mod_peaks$Log2FC >= 1,]
+  egcs = table(mod_peaks_up$peakType)/length(mod_peaks_up$peakType)
+  mod_peaks_down = mod_peaks[mod_peaks$Log2FC <= -1,]
+  autonomic = table(mod_peaks_down$peakType)/length(mod_peaks_down$peakType)
+  for (peak_type in names(egcs)){
+    results = rbind(results, data.frame(module = module, cell_type = "EGC", peak_type = peak_type, percentage = egcs[[peak_type]]))
+  }
+  for (peak_type in names(autonomic)){
+    results = rbind(results, data.frame(module = module, cell_type = "ANCC", peak_type = peak_type, percentage = autonomic[[peak_type]]))
+  }
+}
+```
+
+```{r}
+results$module = factor(results$module, levels = module_names)
+```
+
+```{r}
+pdf("./output/peak_type_proportion.pdf", width = 7, height = 3)
+p1 = ggplot(results, aes(fill=peak_type, y=percentage, x=module)) + 
+    geom_bar(position="fill", stat="identity") + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme_classic() + xlab("Module") + ylab("Proportion") + theme(legend.title = element_blank()) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(angle = 90)) + theme(axis.title=element_text(size=15,family = "Helvetica", color = "black")) +  facet_wrap(~ cell_type)# +  scale_fill_manual(values = cols)
+
+print(p1)
+dev.off()
+```
+
+```{r}
+results = data.frame(module = character(), cell_type = character(), peak_type = character(), percentage = numeric())
+for (module in c(16,17,18,81,83,71,79,74,75,78)){
+  mod_peaks = sig_peaks[sig_peaks$nearestGene %in% modules[[module]],]
+  mod_peaks_up = mod_peaks[mod_peaks$Log2FC >= 1,]
+  egcs = table(mod_peaks_up$peakType)
+  mod_peaks_down = mod_peaks[mod_peaks$Log2FC <= -1,]
+  autonomic = table(mod_peaks_down$peakType)
+  for (peak_type in names(egcs)){
+    results = rbind(results, data.frame(module = module, cell_type = "EGC", peak_type = peak_type, percentage = egcs[[peak_type]]))
+  }
+  for (peak_type in names(autonomic)){
+    results = rbind(results, data.frame(module = module, cell_type = "ANCC", peak_type = peak_type, percentage = autonomic[[peak_type]]))
+  }
+}
+```
+
+```{r}
+results$module = factor(results$module, levels = module_names)
+```
+
+```{r}
+pdf("./output/peak_type_number.pdf", width = 7, height = 3)
+p1 = ggplot(results, aes(fill=peak_type, y=percentage, x=module)) + 
+    geom_bar(position="stack", stat="identity") + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme_classic() + xlab("Module") + ylab("Number") + theme(legend.title = element_blank()) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(angle = 90)) + theme(axis.title=element_text(size=15,family = "Helvetica", color = "black")) +  facet_wrap(~ cell_type)# +  scale_fill_manual(values = cols)
+
+print(p1)
+dev.off()
+```
+
+
+```{r}
+results = data.frame(module = character(), cell_type = character(), peak_type = character(), percentage = numeric())
+for (module in c(16,17,18,81,83,71,79,74,75,78)){
+  mod_peaks = sig_peaks[sig_peaks$nearestGene %in% modules[[module]],]
+  mod_peaks_up = mod_peaks[mod_peaks$Log2FC >= 1,]
+  mod_peaks_down = mod_peaks[mod_peaks$Log2FC <= -1,]
+  results = rbind(results, data.frame(module = module, cell_type = "EGC", peak_type = "promoter", percentage = length(unique(mod_peaks_up$nearestGene[mod_peaks_up$peakType == "Promoter"]))))
+  results = rbind(results, data.frame(module = module, cell_type = "EGC", peak_type = "other", percentage = length(unique(mod_peaks_up$nearestGene[mod_peaks_up$peakType != "Promoter"]))))
+  results = rbind(results, data.frame(module = module, cell_type = "ANCC", peak_type = "promoter", percentage = length(unique(mod_peaks_down$nearestGene[mod_peaks_down$peakType == "Promoter"]))))
+  results = rbind(results, data.frame(module = module, cell_type = "ANCC", peak_type = "other", percentage = length(unique(mod_peaks_down$nearestGene[mod_peaks_down$peakType != "Promoter"]))))
+}
+```
+
+```{r}
+results$module = factor(results$module, levels = module_names)
+```
+
+
+```{r}
+pdf("./output/peak_type_number_unique.pdf", width = 7, height = 3)
+p1 = ggplot(results, aes(fill=peak_type, y=percentage, x=module)) + 
+    geom_bar(position="stack", stat="identity") + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme_classic() + xlab("Module") + ylab("Number") + theme(legend.title = element_blank()) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(angle = 90)) + theme(axis.title=element_text(size=15,family = "Helvetica", color = "black")) +  facet_wrap(~ cell_type)# +  scale_fill_manual(values = cols)
+
+print(p1)
+dev.off()
+```
+
+```{r}
+pdf("./output/peak_type_proportion_unique.pdf", width = 7, height = 3)
+p1 = ggplot(results, aes(fill=peak_type, y=percentage, x=module)) + 
+    geom_bar(position="fill", stat="identity") + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme_classic() + xlab("Module") + ylab("Proportion") + theme(legend.title = element_blank()) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(angle = 90)) + theme(axis.title=element_text(size=15,family = "Helvetica", color = "black")) +  facet_wrap(~ cell_type)# +  scale_fill_manual(values = cols)
+
+print(p1)
+dev.off()
+```
+```{r}
+results = data.frame(module = character(), cell_type = character(), peak_type = character(), percentage = numeric())
+all_genes = getGenes(ArchRProj = project)
+for (module in c(16,17,18,81,83,71,79,74,75,78)){
+  mod_peaks = sig_peaks[sig_peaks$nearestGene %in% modules[[module]],]
+  n_mod = length(modules[[module]][modules[[module]] %in% all_genes$symbol])
+  mod_peaks_up = mod_peaks[mod_peaks$Log2FC >= 1,]
+  mod_peaks_down = mod_peaks[mod_peaks$Log2FC <= -1,]
+  results = rbind(results, data.frame(module = module, cell_type = "EGC", peak_type = "promoter", percentage = length(unique(mod_peaks_up$nearestGene[mod_peaks_up$peakType == "Promoter"]))/n_mod))
+ 
+  results = rbind(results, data.frame(module = module, cell_type = "ANCC", peak_type = "promoter", percentage = length(unique(mod_peaks_down$nearestGene[mod_peaks_down$peakType == "Promoter"]))/length(modules[[module]])))
+
+}
+```
+
+```{r}
+results$module = factor(results$module, levels = module_names)
+```
+
+```{r}
+pdf("./output/proportion_genes_DA_peak_promoter.pdf", width = 7, height = 3)
+p1 = ggplot(results, aes(fill=peak_type, y=percentage, x=module)) + 
+    geom_bar(stat="identity") + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme_classic() + xlab("Module") + ylab("Proportion") + theme(legend.title = element_blank()) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(angle = 90)) + theme(axis.title=element_text(size=15,family = "Helvetica", color = "black")) +  facet_wrap(~ cell_type)# +  scale_fill_manual(values = cols)
+
+print(p1)
+dev.off()
+```
+
+```{r}
+pdf("./output/proportion_genes_DA_peak_promoter_v2.pdf", width = 5, height = 2)
+p1 = ggplot(results, aes(fill= cell_type, y=percentage, x=module)) + 
+    geom_bar(stat="identity", position = "dodge") + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme_classic() + xlab("Module") + ylab("Proportion") + theme(legend.title = element_blank()) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(angle = 90)) + theme(axis.title=element_text(size=15,family = "Helvetica", color = "black")) + scale_fill_grey(start = 0, end = .7)
+    #scale_fill_manual(values = c("#bcbd22", '#e377c2'))
+print(p1)
+dev.off()
+```
+
+```{r}
+write.csv(results, "output/proportion_peaks_promoter.csv", quote = F, row.names = F)
+```
+
+```{r}
+results = data.frame(module = character(), cell_type = character(), peak_type = character(), percentage = numeric())
+for (module in c(16,17,18,81,83,71,79,74,75,78)){
+  mod_peaks = sig_peaks[sig_peaks$nearestGene %in% modules[[module]],]
+  mod_peaks_up = mod_peaks[mod_peaks$Log2FC >= 1,]
+  mod_peaks_down = mod_peaks[mod_peaks$Log2FC <= -1,]
+  results = rbind(results, data.frame(module = module, cell_type = "EGC", peak_type = "distal", percentage = length(unique(mod_peaks_up$nearestGene[mod_peaks_up$peakType == "Distal"]))/length(modules[[module]])))
+ 
+  results = rbind(results, data.frame(module = module, cell_type = "ANCC", peak_type = "distal", percentage = length(unique(mod_peaks_down$nearestGene[mod_peaks_down$peakType == "Distal"]))/length(modules[[module]])))
+
+}
+```
+
+```{r}
+results$module = factor(results$module, levels = module_names)
+```
+
+```{r}
+pdf("./output/proportion_genes_DA_peak_distal.pdf", width = 7, height = 3)
+p1 = ggplot(results, aes(fill=peak_type, y=percentage, x=module)) + 
+    geom_bar(stat="identity") + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme_classic() + xlab("Module") + ylab("Proportion") + theme(legend.title = element_blank()) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(angle = 90)) + theme(axis.title=element_text(size=15,family = "Helvetica", color = "black")) +  facet_wrap(~ cell_type)# +  scale_fill_manual(values = cols)
+
+print(p1)
+dev.off()
+```
+
+```{r}
+results = data.frame(module = character(), cell_type = character(), peak_type = character(), percentage = numeric())
+for (module in c(16,17,18,81,83,71,79,74,75,78)){
+  mod_peaks = sig_peaks[sig_peaks$nearestGene %in% modules[[module]],]
+  mod_peaks_up = mod_peaks[mod_peaks$Log2FC >= 1,]
+  mod_peaks_down = mod_peaks[mod_peaks$Log2FC <= -1,]
+  results = rbind(results, data.frame(module = module, cell_type = "EGC", peak_type = "exonic", percentage = length(unique(mod_peaks_up$nearestGene[mod_peaks_up$peakType == "Exonic"]))/n_mod))
+ 
+  results = rbind(results, data.frame(module = module, cell_type = "ANCC", peak_type = "exonic", percentage = length(unique(mod_peaks_down$nearestGene[mod_peaks_down$peakType == "Exonic"]))/length(modules[[module]])))
+}
+```
+
+```{r}
+results$module = factor(results$module, levels = module_names)
+```
+
+```{r}
+write.csv(results, "output/proportion_peaks_exonic.csv", quote = F, row.names = F)
+```
+
+```{r}
+pdf("./output/proportion_genes_DA_peak_exon.pdf", width = 7, height = 3)
+p1 = ggplot(results, aes(fill=peak_type, y=percentage, x=module)) + 
+    geom_bar(stat="identity") + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme_classic() + xlab("Module") + ylab("Proportion") + theme(legend.title = element_blank()) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(angle = 90)) + theme(axis.title=element_text(size=15,family = "Helvetica", color = "black")) +  facet_wrap(~ cell_type)# +  scale_fill_manual(values = cols)
+
+print(p1)
+dev.off()
+```
+
+```{r}
+results = data.frame(module = character(), cell_type = character(), peak_type = character(), percentage = numeric())
+for (module in c(16,17,18,81,83,71,79,74,75,78)){
+  mod_peaks = sig_peaks[sig_peaks$nearestGene %in% modules[[module]],]
+  mod_peaks_up = mod_peaks[mod_peaks$Log2FC >= 1,]
+  mod_peaks_down = mod_peaks[mod_peaks$Log2FC <= -1,]
+  results = rbind(results, data.frame(module = module, cell_type = "EGC", peak_type = "intronic", percentage = length(unique(mod_peaks_up$nearestGene[mod_peaks_up$peakType == "Intronic"]))/length(modules[[module]])))
+ 
+  results = rbind(results, data.frame(module = module, cell_type = "ANCC", peak_type = "intronic", percentage = length(unique(mod_peaks_down$nearestGene[mod_peaks_down$peakType == "Intronic"]))/length(modules[[module]])))
+}
+```
+
+```{r}
+results$module = factor(results$module, levels = module_names)
+```
+
+```{r}
+pdf("./output/proportion_genes_DA_peak_intronic.pdf", width = 7, height = 3)
+p1 = ggplot(results, aes(fill=peak_type, y=percentage, x=module)) + 
+    geom_bar(stat="identity") + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme_classic() + xlab("Module") + ylab("Proportion") + theme(legend.title = element_blank()) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(angle = 90)) + theme(axis.title=element_text(size=15,family = "Helvetica", color = "black")) +  facet_wrap(~ cell_type)# +  scale_fill_manual(values = cols)
+
+print(p1)
+dev.off()
+```
+
+```{r}
+results = data.frame(module = character(), cell_type = character(), peak_type = character(), percentage = numeric())
+for (module in c(16,17,18,81,83,71,79,74,75,78)){
+  mod_peaks = sig_peaks[sig_peaks$nearestGene %in% modules[[module]],]
+  mod_peaks_up = mod_peaks[mod_peaks$Log2FC >= 1,]
+  mod_peaks_down = mod_peaks[mod_peaks$Log2FC <= -1,]
+  results = rbind(results, data.frame(module = module, cell_type = "EGC", peak_type = "any", percentage = length(unique(mod_peaks_up$nearestGene))/length(modules[[module]])))
+ 
+  results = rbind(results, data.frame(module = module, cell_type = "ANCC", peak_type = "any", percentage = length(unique(mod_peaks_down$nearestGene))/length(modules[[module]])))
+
+}
+```
+
+```{r}
+results$module = factor(results$module, levels = module_names)
+```
+
+```{r}
+pdf("./output/proportion_genes_DA_peak_any.pdf", width = 7, height = 3)
+p1 = ggplot(results, aes(fill=peak_type, y=percentage, x=module)) + 
+    geom_bar(stat="identity") + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme_classic() + xlab("Module") + ylab("Proportion") + theme(legend.title = element_blank()) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(angle = 90)) + theme(axis.title=element_text(size=15,family = "Helvetica", color = "black")) +  facet_wrap(~ cell_type)# +  scale_fill_manual(values = cols)
+
+print(p1)
+dev.off()
+```
+
+```{r}
+palette = c("#bcbd22", '#e377c2','#7f7f7f', "black", "dark cyan")
+```
+
+
+```{r}
+make_track_plot = function(genes, name){
+markerGenes  <- c(
+    genes
+  )
+
+p <- plotBrowserTrack(
+    ArchRProj = project, 
+    groupBy = "cell_type", 
+    geneSymbol = markerGenes, 
+    upstream = 10000,
+    downstream = 10000,
+    loops = NULL,
+    useGroups = c("autonomic","EGC1","EGC2","oligodendrocytes","astrocytes"),
+    pal = palette
+)
+
+plotPDF(plotList = p, 
+    name = paste0(name,".pdf"), 
+    ArchRProj = project, 
+    addDOC = FALSE, width = 4, height = 3)
+}
+```
+
+```{r}
+track_plot_module = function(module){
+
+  mod_peaks = sig_peaks[sig_peaks$nearestGene %in% modules[[module]],]
+  mod_peaks_up = mod_peaks[mod_peaks$Log2FC >= 1,]
+  mod_peaks_down = mod_peaks[mod_peaks$Log2FC <= -1,]
+  genes = unique(mod_peaks_up[mod_peaks_up$peakType == "Promoter",]$nearestGene)
+  make_track_plot(genes, paste0("EGC_", module))
+  genes = unique(mod_peaks_down[mod_peaks_down$peakType == "Promoter",]$nearestGene)
+  make_track_plot(genes, paste0("ANCC_", module))
+}
+```
+
+```{r}
+for (module in c(16,17,18,81,83,71,79,74,75,78)){
+  track_plot_module(module)
+}
+```
+
+
+

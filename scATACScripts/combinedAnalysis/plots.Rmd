@@ -1,0 +1,94 @@
+---
+title: "Make UMAP plots"
+output: html_notebook
+---
+
+```{r}
+library(ArchR)
+library(Seurat)
+addArchRThreads(threads = 6) 
+addArchRGenome("mm10")
+```
+
+```{r}
+project = loadArchRProject(path = "./output")
+```
+
+```{r}
+getAvailableMatrices(ArchRProj = project)
+```
+
+```{r}
+motifs = getMatrixFromProject(
+  ArchRProj = project,
+  useMatrix = "homer_motifsMatrix",
+  useSeqnames = NULL,
+  verbose = TRUE,
+  binarize = FALSE,
+  threads = getArchRThreads(),
+  logFile = createLogFile("getMatrixFromProject")
+)
+
+```
+```{r}
+zscore = assays(motifs)$z
+```
+
+```{r}
+pheno = project@cellColData
+```
+
+
+```{r}
+umap = project@embeddings$UMAP_harmony2$df
+```
+
+```{r}
+zscore = zscore[,rownames(pheno)] 
+```
+
+```{r}
+pheno = as.matrix(pheno)
+```
+
+
+```{r}
+data = CreateSeuratObject(as.matrix(zscore), meta.data = pheno)
+```
+
+```{r}
+data$cell_type = project$cell_type
+data$cell_type2 = project$cell_type2
+```
+
+```{r}
+names(umap) = c("umap_1","umap_2")
+umap = as.matrix(umap)
+
+rownames(umap) = colnames(data)
+
+calculated_umap = CreateDimReducObject(
+  embeddings = umap,
+  key = "umap",
+  assay = "RNA"
+)
+
+data[["umap"]] = calculated_umap
+```
+
+```{r}
+saveRDS(data, "seurat_object.rds")
+```
+
+```{r}
+library(viridis)
+png("./output/Plots/Sox10_motif_UMAP.png", width = 5, height = 4, units = "in", res = 300)
+p = FeaturePlot(object = data, features = c("Sox10.HMG-259"),
+                label = F,max.cutoff = "q95", order = T)
+p = p + theme(axis.text=element_text(size=20),axis.title=element_text(size=20),plot.title = element_blank()) + scale_color_viridis()
+print(p)
+dev.off()
+```
+
+
+

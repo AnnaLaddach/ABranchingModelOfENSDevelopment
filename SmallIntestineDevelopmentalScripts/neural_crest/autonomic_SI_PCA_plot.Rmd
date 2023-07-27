@@ -1,0 +1,121 @@
+---
+title: "Create PCA plots for merged autonomic and small intestine data"
+output: html_notebook
+---
+
+```{r}
+library(extrafont)
+library(ggplot2)
+```
+
+
+```{r}
+#read in data
+counts = read.csv("../../output/combined_anno_loom.csv")
+pheno = read.csv("../../output/combined_obs_anno_loom.csv")
+rownames(pheno) = pheno$index
+mat = as.matrix(counts[,2:ncol(counts)])
+colnames(mat) = names(counts)[2:ncol(counts)]
+rownames(mat) = counts$X
+```
+
+```{r}
+pca = read.csv("../../output/combined_pca.csv")
+```
+
+```{r}
+colour_palette = c(
+ '#bcbd22',
+ '#1f77b4',
+ '#ff7f0e',
+ '#2ca02c',
+ '#d62728',
+ '#9467bd',
+ '#8c564b',
+ '#e377c2',
+ '#7f7f7f')
+
+```
+
+
+```{r}
+levels(pheno$louvain_semisup)
+
+pheno$louvain_semisup = factor(pheno$louvain_semisup, levels = c("Autonomic","eEP","eENP","lEP1","lEP2","lENP","ENC","EGC1","EGC2"))
+levels(pheno$louvain_semisup)
+```
+```{r}
+data = data.frame(PC1 =pca[,2],PC2 = pca[,3], cluster = pheno$louvain_semisup)
+```
+
+```{r}
+pdf('../../output/pca_autonomic.pdf',height = 3.5, width = 5.5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 3) + 
+  scale_colour_manual(values = colour_palette)+ theme_classic() +
+theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank()) 
+print(p)
+dev.off()
+```
+```{r}
+for (gene in c("Sox10","Cux2","Phox2b","Klf9","Klf14","Dpysl2")){
+  data[[gene]] = mat[gene,]
+  q = quantile(data[[gene]], probs = 0.95)[[1]]
+  data[[gene]][data[[gene]] > q] =  q
+}
+```
+
+```{r}
+library(viridis)
+for (gene in c("Sox10","Cux2","Phox2b","Klf9","Klf14","Dpysl2")){
+pdf(paste0('../../output/neural_crest/PCA/pca_autonomic_', gene, '_rev_order.pdf'), height = 3.5, width = 4.5)
+  
+data = data[order(-data[[gene]]),]
+data$colour = data[[gene]]
+p = ggplot(data = data, aes(x = PC1,y = PC2,color =colour)) + geom_point(alpha=1, size = 3) + 
+   scale_color_viridis() + theme_classic() +
+theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank())  + ggtitle(gene)
+print(p)
+dev.off()
+}
+```
+
+
+
+```{r}
+library(viridis)
+for (gene in c("Sox10","Cux2","Phox2b","Klf9","Klf14","Dpysl2")){
+pdf(paste0('../../output/neural_crest/PCA/pca_autonomic_', gene, '_rand_order.pdf'), height = 3.5, width = 4.5)
+
+data = data[sample(nrow(data)),]
+data$colour = data[[gene]]
+p = ggplot(data = data, aes(x = PC1,y = PC2,color =colour)) + geom_point(alpha=1, size = 3) + 
+   scale_color_viridis() + theme_classic() +
+theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank())  + ggtitle(gene)
+print(p)
+dev.off()
+}
+```
+
+```{r}
+q = quantile(data[["Sox10"]], probs = 0.95)
+```
+```{r}
+q[[1]]
+```
+
+```{r}
+library(viridis)
+data_orig = data
+data = data[data$cluster == "Autonomic",]
+for (gene in c("Sox10","Cux2","Phox2b","Klf9","Klf14","Dpysl2")){
+pdf(paste0('../../output/neural_crest/PCA/pca_autonomic_', gene, '_autonomic_only.pdf'), height = 3.5, width = 4.5)
+data = data[sample(nrow(data)),]
+data$colour = data[[gene]]
+p = ggplot(data = data, aes(x = PC1,y = PC2,color =colour)) + geom_point(alpha=1, size = 3) + 
+   scale_color_viridis() + theme_classic() +
+theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank())  + ggtitle(gene)
+print(p)
+dev.off()
+}
+```
+

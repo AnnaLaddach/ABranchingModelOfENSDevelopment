@@ -1,0 +1,25 @@
+---
+title: "Convert gene names to refseq transcripts"
+output: html_notebook
+---
+
+```{r}
+library(biomaRt)
+```
+
+Look at all gene modules.
+```{r}
+m = readRDS('../../output/gene_modules/all_data/antler_obj.RDS')
+mgi_genes = unlist(m$topCorr_DR$genemodules)
+
+get_name = function(name){
+  try(return(strsplit(name,'\\.')[[1]][1]))
+}
+
+mgi_genes = as.character(lapply(as.character(mgi_genes),get_name))
+
+ensembl = useMart("ensembl", dataset='mmusculus_gene_ensembl')
+gene_names=getBM(c("mgi_symbol", "refseq_mrna"), filters = "mgi_symbol", values = mgi_genes, mart = ensembl)
+
+write.csv(unique(gene_names$refseq_mrna[gene_names$refseq_mrna != ""]),"../../output/gene_modules/all_data/csde1_binding/refseq_transcripts.txt", row.names = F, quote = F)
+```

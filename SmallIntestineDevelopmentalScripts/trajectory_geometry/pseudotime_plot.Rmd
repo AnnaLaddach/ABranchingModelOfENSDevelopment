@@ -1,0 +1,429 @@
+---
+title: "Plot PCA with pseudotime trajectories"
+output: html_notebook
+---
+
+```{r}
+## load libraries and source scripts
+library(slingshot)
+library(inflection)
+library(rgl)
+library(RColorBrewer)
+library(ggplot2)
+source("../GGSave.R")
+```
+
+```{r}
+## load data
+adata = readRDS('../../output/slingshot/adata_start_louvain_semisup.rds')
+```
+
+Depict 2d trajectory
+```{r}
+
+colour_palette = c('#1f77b4',
+ '#ff7f0e',
+ '#2ca02c',
+ '#d62728',
+ '#9467bd',
+ '#8c564b',
+ '#e377c2',
+ '#7f7f7f')
+
+adata$semisup = as.character(adata$louvain_r1.5)
+adata$semisup[!(adata$louvain_r1.5 %in% c("Glia_1","Glia_2"))] = as.character(adata$louvain_semisup[!(adata$louvain_r1.5 %in% c("Glia_1","Glia_2"))])
+
+adata$semisup = as.factor(adata$semisup)
+
+adata$semisup = factor(adata$semisup, levels = c("Early","Early_neurons","Late_1","Late_2","Late_neurons","Adult_neurons",  "Glia_1","Glia_2")        
+)
+
+library(plyr)
+adata$semisup = revalue(adata$semisup, c("Early"="eEP", "Early_neurons"="eENP","Late_1" = "lEP1",
+             "Late_2" = "lEP2", "Late_neurons" = "lENP","Adult_neurons" = "EN", "Glia_1" = "EGC1", "Glia_2" = "EGC2"))
+
+data = data.frame(PC1 =-adata@reducedDims$PCA[,1],PC2 =  adata@reducedDims$PCA[,2], cluster = adata$semisup)
+glial_pt = slingCurves(adata)$curve2$s[!(is.na(adata$slingPseudotime_2)),]
+glial_pt = glial_pt[order(adata$slingPseudotime_2[!(is.na(adata$slingPseudotime_2))]),]
+glial_pt =as.data.frame(glial_pt)
+glial_pt$pt = adata$slingPseudotime_2[!(is.na(adata$slingPseudotime_2))][order(adata$slingPseudotime_2[!(is.na(adata$slingPseudotime_2))])]
+glial_pt$`Dim-1` = -glial_pt$`Dim-1`
+
+neural_pt = slingCurves(adata)$curve1$s[!(is.na(adata$slingPseudotime_1)),]
+neural_pt = neural_pt[order(adata$slingPseudotime_1[!(is.na(adata$slingPseudotime_1))]),]
+neural_pt =as.data.frame(neural_pt)
+neural_pt$pt = adata$slingPseudotime_1[!(is.na(adata$slingPseudotime_1))][order(adata$slingPseudotime_1[!(is.na(adata$slingPseudotime_1))])]
+neural_pt$`Dim-1` = -neural_pt$`Dim-1`
+
+neural_early_pt = slingCurves(adata)$curve3$s[!(is.na(adata$slingPseudotime_3)),]
+neural_early_pt = neural_early_pt[order(adata$slingPseudotime_3[!(is.na(adata$slingPseudotime_3))]),]
+neural_early_pt =as.data.frame(neural_early_pt)
+neural_early_pt$pt = adata$slingPseudotime_3[!(is.na(adata$slingPseudotime_3))][order(adata$slingPseudotime_3[!(is.na(adata$slingPseudotime_3))])]
+neural_early_pt$`Dim-1` = -neural_early_pt$`Dim-1`
+
+library(extrafont)
+font_import(paths = "/usr/share/fonts/truetype/myfonts/",prompt = F)
+
+pdf('../../output/pseudotime_2d_v3.pdf',height = 3.5, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 3) + 
+  scale_colour_manual(values = colour_palette)+ theme_classic() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`,color = pt), size = 1.5, color = '#2ca02c') + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`),color = "#8c564b", size = 1.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), color = '#ff7f0e', size = 1.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank())
+print(p)
+dev.off()
+
+
+
+
+
+pdf('../../output/pseudotime_Wwtr1.pdf',height = 3.75, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color =as.numeric(adata['Wwtr1',]@assays[['X']])),alpha=0.3, size = 3) + 
+    theme_classic() + scale_color_viridis() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`,color = pt), size = 1.5, color = 'black') + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`),color = "black", size = 1.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), color = 'black', size = 1.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank()) + ggtitle("Wwtr1")
+print(p)
+dev.off()
+
+
+pdf('../../output/pseudotime_Yap1.pdf',height = 3.75, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color =as.numeric(adata['Yap1',]@assays[['X']])),alpha=0.3, size = 3) + 
+    theme_classic() + scale_color_viridis() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`,color = pt), size = 1.5, color = 'black') + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`),color = "black", size = 1.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), color = 'black', size = 1.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank()) + ggtitle("Yap1")
+print(p)
+dev.off()
+
+
+pdf('../../output/pseudotime_Tead1.pdf',height = 3.75, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color =as.numeric(adata['Tead1',]@assays[['X']])),alpha=0.3, size = 3) + 
+    theme_classic() + scale_color_viridis() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`,color = pt), size = 1.5, color = 'black') + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`),color = "black", size = 1.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), color = 'black', size = 1.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank()) + ggtitle("Tead1")
+print(p)
+dev.off()
+
+pdf('../../output/pseudotime_Tead2.pdf',height = 3.75, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color =as.numeric(adata['Tead2',]@assays[['X']])),alpha=0.3, size = 3) + 
+    theme_classic() + scale_color_viridis() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`,color = pt), size = 1.5, color = 'black') + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`),color = "black", size = 1.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), color = 'black', size = 1.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank()) + ggtitle("Tead2")
+print(p)
+dev.off()
+
+pdf('../../output/pseudotime_Tead4.pdf',height = 3.75, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color =as.numeric(adata['Tead4',]@assays[['X']])),alpha=0.3, size = 3) + 
+    theme_classic() + scale_color_viridis() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`,color = pt), size = 1.5, color = 'black') + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`),color = "black", size = 1.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), color = 'black', size = 1.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank()) + ggtitle("Tead4")
+print(p)
+dev.off()
+
+pdf('../../output/pseudotime_Smad1.pdf',height = 3.75, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color =as.numeric(adata['Smad1',]@assays[['X']])),alpha=0.3, size = 3) + 
+    theme_classic() + scale_color_viridis() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`,color = pt), size = 1.5, color = 'black') + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`),color = "black", size = 1.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), color = 'black', size = 1.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank()) + ggtitle("Smad1")
+print(p)
+dev.off()
+
+pdf('../../output/pseudotime_Smad2.pdf',height = 3.75, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color =as.numeric(adata['Smad2',]@assays[['X']])),alpha=0.3, size = 3) + 
+    theme_classic() + scale_color_viridis() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`,color = pt), size = 1.5, color = 'black') + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`),color = "black", size = 1.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), color = 'black', size = 1.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank()) + ggtitle("Smad2")
+print(p)
+dev.off()
+
+pdf('../../output/pseudotime_Smad4.pdf',height = 3.75, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color =as.numeric(adata['Smad4',]@assays[['X']])),alpha=0.3, size = 3) + 
+    theme_classic() + scale_color_viridis() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`,color = pt), size = 1.5, color = 'black') + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`),color = "black", size = 1.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), color = 'black', size = 1.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank()) + ggtitle("Smad4")
+print(p)
+dev.off()
+
+pdf('../../output/pseudotime_2d_v5.pdf',height = 3.5, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 4) + 
+  scale_colour_manual(values = colour_palette)+ theme_classic() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank()) 
+print(p)
+dev.off()
+
+pdf('../../output/pseudotime_2d_early_late_v3.pdf',height = 5, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 3, color = "grey") + theme_classic() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 1.5) + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 1.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 1.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.title = element_blank())  +  geom_path(data = neural_early_pt[neural_early_pt$pt > 60,], aes(x = `Dim-1`, y = `Dim-2`), size = 1.5,color = "magenta")  +  geom_path(data = neural_pt[neural_pt$pt > 85,], aes(x = `Dim-1`, y = `Dim-2`), size = 1.5,color = "springgreen4")
+                                                                                  
+print(p)
+dev.off()
+
+
+pdf('../../output/pseudotime_2d_early_late_v5.pdf',height = 5, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 4, color = "dark grey") + theme_classic() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.title = element_blank())  +  geom_path(data = neural_early_pt[neural_early_pt$pt > 60,], aes(x = `Dim-1`, y = `Dim-2`), size = 0.5,color = "magenta")  +  geom_path(data = neural_pt[neural_pt$pt > 85,], aes(x = `Dim-1`, y = `Dim-2`), size = 0.5,color = "springgreen4")
+                                                                                  
+print(p)
+dev.off()
+
+pdf('../../output/pseudotime_2d_early_late_v4.pdf',height = 5, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 4, color = "grey") + theme_classic() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.title = element_blank())  +  geom_path(data = neural_early_pt[neural_early_pt$pt > 60,], aes(x = `Dim-1`, y = `Dim-2`), size = 0.5,color = "magenta")  +  geom_path(data = neural_pt[neural_pt$pt > 85,], aes(x = `Dim-1`, y = `Dim-2`), size = 0.5,color = "springgreen4")
+                                                                                  
+print(p)
+dev.off()
+
+
+pdf('../../output/pseudotime_2d_red.pdf',height = 5, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 3, color = "grey") + theme_classic() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 1.5, color = "red") + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 1.5, color = "red") +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 1.5, color = "red")  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.title = element_blank())              
+print(p)
+dev.off()
+
+
+pdf('../../output/pseudotime_2d_neuronal_v3.pdf',height = 5, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 3, color = "grey") + theme_classic() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 1.5) + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 1.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 1.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.title = element_blank())  +  geom_path(data = neural_early_pt[neural_early_pt$pt > 60,], aes(x = `Dim-1`, y = `Dim-2`), size = 1.5,color = "red")  +  geom_path(data = neural_pt[neural_pt$pt > 85,], aes(x = `Dim-1`, y = `Dim-2`), size = 1.5,color = "red")
+                                                                                  
+print(p)
+dev.off()
+
+pdf('../../output/pseudotime_2d_glial_v3.pdf',height = 5, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 3, color = "grey") + theme_classic() +
+  geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 1.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 1.5)  +  geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 1.5, color = "red") + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) 
+                                                                                  
+print(p)
+dev.off()
+
+pdf('../../output/pseudotime_2d_neuronal_v4.pdf',height = 5, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 4, color = "grey") + theme_classic() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.title = element_blank())  +  geom_path(data = neural_early_pt[neural_early_pt$pt > 60,], aes(x = `Dim-1`, y = `Dim-2`), size = 0.5,color = "red")  +  geom_path(data = neural_pt[neural_pt$pt > 85,], aes(x = `Dim-1`, y = `Dim-2`), size = 0.5,color = "red")
+                                                                                  
+print(p)
+dev.off()
+
+
+pdf('../../output/pseudotime_2d_glial_v4.pdf',height = 5, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 4, color = "grey") + theme_classic() +
+  geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5)  +  geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5, color = "red") + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) 
+                                                                                  
+print(p)
+dev.off()
+
+
+pdf('../../output/pseudotime_2d_neuronal_bp_late_v4.pdf',height = 5, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 4, color = "grey") + theme_classic() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.title = element_blank())  +  geom_path(data = neural_pt[neural_pt$pt > 85,], aes(x = `Dim-1`, y = `Dim-2`), size = 0.5,color = "red")
+                                                                                  
+print(p)
+dev.off()
+
+pdf('../../output/pseudotime_2d_neuronal_late_v4.pdf',height = 5, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 4, color = "grey") + theme_classic() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5)  +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5, color = "red")   + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.title = element_blank())  +  geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5,color = "red")
+                                                                                  
+print(p)
+dev.off()
+```
+
+
+```{r}
+pdf('../../output/pseudotime_2d_neuronal_v5.pdf',height = 5, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 4, color = "dark grey")  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.title = element_blank())  +  geom_path(data = neural_early_pt[neural_early_pt$pt > 60,], aes(x = `Dim-1`, y = `Dim-2`), size = 0.5,color = "red")  +  geom_path(data = neural_pt[neural_pt$pt > 85,], aes(x = `Dim-1`, y = `Dim-2`), size = 0.5,color = "red")
+                                                                                  
+print(p)
+dev.off()
+
+
+pdf('../../output/pseudotime_2d_glial_v5.pdf',height = 5, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 4, color = "dark grey") + theme_classic() + geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5, color = "red") + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) 
+                                                                                  
+print(p)
+dev.off()
+
+
+pdf('../../output/pseudotime_2d_neuronal_bp_late_v5.pdf',height = 5, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 4, color = "dark grey") + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.title = element_blank())  +  geom_path(data = neural_pt[neural_pt$pt > 85,], aes(x = `Dim-1`, y = `Dim-2`), size = 0.5,color = "red")
+                                                                                  
+print(p)
+dev.off()
+
+
+pdf('../../output/pseudotime_2d_neuronal_late_v5.pdf',height = 5, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 4, color = "dark grey") + theme_classic() +
+     geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5, color = "red")   + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.title = element_blank())  +  geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5,color = "red")
+                                                                                  
+print(p)
+dev.off()
+
+
+points = neural_pt[c(112,185,261),]
+
+pdf('../../output/pseudotime_2d_neuronal_late_v5_pt_points.pdf',height = 5, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 4, color = "dark grey") + theme_classic() +
+     geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5, color = "red")   + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.title = element_blank())  +  geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.25,color = "red") + geom_point(data = points,aes(x = `Dim-1`, y = `Dim-2`),alpha=1, size = 5, color = "red")
+print(p)
+dev.off()
+
+
+pdf('../../output/pseudotime_2d_early_late_v5.pdf',height = 5, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 4, color = "dark grey") + theme_classic() + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.title = element_blank())  +  geom_path(data = neural_early_pt[neural_early_pt$pt > 60,], aes(x = `Dim-1`, y = `Dim-2`), size = 0.5,color = "magenta")  +  geom_path(data = neural_pt[neural_pt$pt > 85,], aes(x =+ `Dim-1`, y = `Dim-2`), size = 0.5,color = "springgreen4")
+                                                                                  
+print(p)
+dev.off()
+```
+
+```{r}
+pdf('../../output/pseudotime_2d_early_late_v5.pdf',height = 5, width = 5)
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 4, color = "dark grey") + theme_classic() + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.title = element_blank())  +  geom_path(data = neural_early_pt[neural_early_pt$pt > 60,], aes(x = `Dim-1`, y = `Dim-2`), size = 0.5,color = "magenta")  +  geom_path(data = neural_pt[neural_pt$pt > 85,], aes(x =+ `Dim-1`, y = `Dim-2`), size = 0.5,color = "springgreen4")
+                                                                                  
+print(p)
+dev.off()
+```
+
+
+```{r}
+data = data.frame(PC1 =-adata@reducedDims$PCA[,1],PC2 =  adata@reducedDims$PCA[,2], cluster = adata$semisup)
+data$time_point = adata$time_point
+data$time = "0"
+data$time[data$time_point == "E14"] = "1" 
+data = data[order(data$time,decreasing = F),]
+
+pdf('../../output/pseudotime_E14.pdf',height = 5, width = 5)
+
+
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = time),alpha=0.3, size = 4) + theme_classic() +
+  scale_colour_manual(values = c("dark grey","red")) + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.position = "none")
+print(p)
+dev.off()
+
+
+pdf('../../output/pseudotime_E14_orange.pdf',height = 5, width = 5)
+
+
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = time),alpha=0.5, size = 4) + theme_classic() +
+  scale_colour_manual(values = c("light grey",'#ff7f0e')) + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.position = "none")
+print(p)
+dev.off()
+
+```
+
+```{r}
+data = data.frame(PC1 =-adata@reducedDims$PCA[,1],PC2 =  adata@reducedDims$PCA[,2], cluster = adata$semisup)
+data$time_point = adata$time_point
+data$time = "0"
+data$time[data$time_point == "E14"] = "1" 
+data = data[order(data$time,decreasing = F),]
+
+
+pdf('../../output/pca_tc.pdf',height = 5, width = 5)
+
+
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = time),alpha=0.5, size = 4) + theme_classic() +
+  scale_colour_manual(values = c("light grey",'#ff7f0e')) + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.position = "none")
+print(p)
+dev.off()
+
+```
+
+```{r}
+data = data.frame(PC1 =-adata@reducedDims$PCA[,1],PC2 =  adata@reducedDims$PCA[,2], cluster = adata$semisup)
+data$time_point = adata$time_point
+data$time = "0"
+data$time[data$time_point == "E12"] = "1" 
+data$time[data$time_point == "E14"] = "2" 
+data = data[order(data$time,decreasing = F),]
+
+pdf('../../output/pca_early_tc.pdf',height = 5, width = 5)
+
+
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = time),alpha=0.5, size = 4) + theme_classic() +
+  scale_colour_manual(values = c("light grey",'#1f77b4','#ff7f0e')) + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.position = "none")
+print(p)
+dev.off()
+
+```
+
+```{r}
+data = data.frame(PC1 =-adata@reducedDims$PCA[,1],PC2 =  adata@reducedDims$PCA[,2], cluster = adata$semisup)
+data$time_point = adata$time_point
+data$time = "0"
+data$time[data$time_point == "E12"] = "1" 
+data = data[order(data$time,decreasing = F),]
+
+pdf('../../output/pca_early.pdf',height = 5, width = 5)
+
+
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = time),alpha=0.5, size = 4) + theme_classic() +
+  scale_colour_manual(values = c("light grey",'#1f77b4')) + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.position = "none")
+print(p)
+dev.off()
+
+```
+
+```{r}
+colour_palette = c('#66c2a5', '#fc8d62', '#e78ac3', '#a6d854', '#e5c494', '#b3b3b3')
+data$time_point = adata$time_point
+pdf('../../output/pseudotime_2d_time_point_alpha0.3.pdf',height = 5, width = 5)
+p = ggplot(data = data[sample(1:nrow(data)),], aes(x = PC1,y = PC2)) + geom_point(aes(color = time_point),alpha=0.3, size = 4) + 
+  scale_colour_manual(values = colour_palette)+ theme_classic() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank())  + theme(legend.position = "none")
+print(p)
+dev.off()
+```
+
+```{r}
+colour_palette = c('#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b')
+colour_palette = c('#66c2a5', '#fc8d62', '#e78ac3', '#a6d854', '#e5c494', '#b3b3b3')
+data$time_point = adata$time_point
+pdf('../../output/pseudotime_2d_time_point_v3.pdf',height = 3.5, width = 5)
+p = ggplot(data = data[sample(1:nrow(data)),], aes(x = PC1,y = PC2)) + geom_point(aes(color = time_point),alpha=0.3, size = 4) + 
+  scale_colour_manual(values = colour_palette)+ theme_classic() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank())
+print(p)
+dev.off()
+
+png('../../output/pseudotime_2d_time_point_v3.png',height = 3.5, width = 5, units = "in", res = 300)
+p = ggplot(data = data[sample(1:nrow(data)),], aes(x = PC1,y = PC2)) + geom_point(aes(color = time_point),alpha=0.3, size = 4) + 
+  scale_colour_manual(values = colour_palette)+ theme_classic() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 1) + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 1) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 1)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank())
+print(p)
+dev.off()
+```
+
+```{r}
+colour_palette = c('#1f77b4',
+ '#ff7f0e',
+ '#2ca02c',
+ '#d62728',
+ '#9467bd',
+ '#8c564b',
+ '#e377c2',
+ '#7f7f7f')
+
+
+pdf('../../output/pseudotime_2d_E12.pdf',height = 3.5, width = 5)
+p = ggplot(data = data[data$time_point == "E12",], aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 4) + 
+  scale_colour_manual(values = colour_palette)+ theme_classic() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank()) 
+print(p)
+dev.off()
+
+pdf('../../output/pseudotime_2d_E14.pdf',height = 3.5, width = 5)
+p = ggplot(data = data[data$time_point == "E14",], aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 4) + 
+  scale_colour_manual(values = colour_palette)+ theme_classic() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank()) 
+print(p)
+dev.off()
+
+pdf('../../output/pseudotime_2d_E16.pdf',height = 3.5, width = 5)
+p = ggplot(data = data[data$time_point == "E16",], aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 4) + 
+  scale_colour_manual(values = colour_palette)+ theme_classic() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank()) 
+print(p)
+dev.off()
+
+pdf('../../output/pseudotime_2d_P00.pdf',height = 3.5, width = 5)
+p = ggplot(data = data[data$time_point == "P00",], aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 4) + 
+  scale_colour_manual(values = colour_palette)+ theme_classic() +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5)  + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank()) 
+print(p)
+dev.off()
+```
+```{r}
+p = ggplot(data = data, aes(x = PC1,y = PC2)) + geom_point(aes(color = cluster),alpha=0.3, size = 4, color = "dark grey") + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 25)) + theme(legend.title = element_blank()) +
+    geom_path(data = glial_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) + geom_path(data = neural_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) +  geom_path(data = neural_early_pt, aes(x = `Dim-1`, y = `Dim-2`), size = 0.5) +  geom_path(data = neural_pt[neural_pt$pt > 85,], aes(x = `Dim-1`, y = `Dim-2`), size = 0.5,color = "red") +  geom_path(data = glial_pt[glial_pt$pt > 85,], aes(x = `Dim-1`, y = `Dim-2`), size = 0.5,color = "red")
+                                                                                  
+print(p)
+```
+
+

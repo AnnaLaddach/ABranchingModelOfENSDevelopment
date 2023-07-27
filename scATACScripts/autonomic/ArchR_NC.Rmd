@@ -1,0 +1,176 @@
+---
+title: "Process neural crest data"
+output: html_notebook
+---
+
+```{r}
+library(ArchR)
+```
+
+```{r}
+addArchRThreads(threads = 6) 
+addArchRGenome("mm10")
+```
+
+```{r}
+ArrowFiles = c("NC.arrow")
+```
+
+```{r}
+project <- ArchRProject(
+  ArrowFiles = ArrowFiles, 
+  outputDirectory = ".",
+  copyArrows = TRUE #This is recommended so that if you modify the Arrow files you have an original copy for later usage.
+)
+```
+
+```{r}
+df <- getCellColData(project, select = c("log10(nFrags)", "TSSEnrichment"))
+
+p <- ggPoint(
+    x = df[,1], 
+    y = df[,2], 
+    colorDensity = TRUE,
+    continuousSet = "sambaNight",
+    xlabel = "Log10 Unique Fragments",
+    ylabel = "TSS Enrichment",
+    xlim = c(log10(500), quantile(df[,1], probs = 0.99)),
+    ylim = c(0, quantile(df[,2], probs = 0.99))
+) + geom_hline(yintercept = 4, lty = "dashed") + geom_vline(xintercept = 4, lty = "dashed")
+
+p
+```
+```{r}
+project = project[project$nFrags > 10000,]
+project <- filterDoublets(project)
+```
+```{r}
+project <- addIterativeLSI(
+    ArchRProj = project,
+    useMatrix = "TileMatrix", 
+    name = "IterativeLSI", 
+    iterations = 2, 
+    varFeatures = 25000, 
+    dimsToUse = 1:30
+)
+```
+
+
+```{r}
+project <- addUMAP(ArchRProj = project, reducedDims = "IterativeLSI")
+
+p1 <- plotEmbedding(ArchRProj = project, colorBy = "cellColData", name = "Sample", embedding = "UMAP",) 
+
+p1
+```
+
+
+```{r}
+project <- addClusters(
+    input = project,
+    reducedDims = "IterativeLSI",
+    method = "Seurat",
+    name = "Clusters",
+    resolution = 1
+)
+```
+
+```{r}
+project <- addClusters(
+    input = project,
+    reducedDims = "IterativeLSI",
+    method = "Seurat",
+    name = "Clusters_0.5",
+    resolution = 0.5
+)
+```
+```{r}
+p <- plotEmbedding(ArchRProj = project, embedding = "UMAP", colorBy = "cellColData", name = "Clusters") 
+
+plotPDF(p,name = "UMAP_clusters.pdf", ArchRProj = project)
+```
+```{r}
+p <- plotEmbedding(ArchRProj = project, embedding = "UMAP", colorBy = "cellColData", name = "Clusters_0.5") 
+
+plotPDF(p,name = "UMAP_clusters_0.8.pdf", ArchRProj = project)
+```
+
+
+```{r}
+seRNA = readRDS("/home/anna/Dropbox (The Francis Crick)/Documents/single_cell_analysis/in_vivo_SI_all/final_results_and_scripts/output/neural_crest/neural_crest.rds")
+```
+
+
+```{r}
+project <- addGeneIntegrationMatrix(
+    ArchRProj = project, 
+    useMatrix = "GeneScoreMatrix",
+    matrixName = "GeneIntegrationMatrix",
+    reducedDims = "IterativeLSI",
+    seRNA = seRNA,
+    addToArrow = FALSE,
+    groupRNA = "seg",
+    nameCell = "predictedCell_Un",
+    nameGroup = "predictedGroup_Un",
+    nameScore = "predictedScore_Un"
+)
+```
+
+```{r}
+cM <- as.matrix(confusionMatrix(project$Clusters, project$predictedGroup_Un))
+preClust <- colnames(cM)[apply(cM, 1 , which.max)]
+cbind(preClust, rownames(cM)) #Assignments
+```
+
+```{r}
+p1 <- plotEmbedding(
+    project, 
+    colorBy = "cellColData", 
+    name = "predictedGroup_Un", 
+    embedding = "UMAP",
+
+)
+
+plotPDF(p1,name = "UMAP_predicted_labels.pdf", ArchRProj = project)
+```
+
+
+
+
+```{r}
+project <- addGroupCoverages(ArchRProj = project, groupBy = "Clusters_0.8")
+```
+
+
+```{r}
+pathToMacs2 <- findMacs2()
+```
+```{r}
+project <- addReproduciblePeakSet(
+    ArchRProj = project, 
+    groupBy = "Clusters_0.8", 
+    pathToMacs2 = pathToMacs2
+)
+```
+```{r}
+getPeakSet(project)
+```
+```{r}
+saveArchRProject(ArchRProj = project, outputDirectory = ".", load = FALSE)
+```
+```{r}
+project = loadArchRProject(path = ".")
+```
+```{r}
+length(project$cellNames[project$predictedGroup_Un =="red"])
+```
+
+```{r}
+write.csv(project$cellNames[project$predictedGroup_Un =="red"], "autonomic_cells", quote = F, row.names = F)
+```
+
+```{r}
+saveArchRProject(ArchRProj = autonomic, outputDirectory = "./autonomic", load = FALSE)
+```
+
+

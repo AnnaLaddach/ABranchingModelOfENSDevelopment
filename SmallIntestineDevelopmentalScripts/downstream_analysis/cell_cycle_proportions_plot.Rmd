@@ -1,0 +1,56 @@
+---
+title: "Calculate and plot cell cycle proportions"
+output: html_notebook
+---
+
+```{r}
+library(ggplot2)
+library(plyr)
+```
+
+```{r}
+#read in data
+counts = read.csv("../../output/adata_anno.csv")
+pheno = read.csv("../../output/obs_anno.csv")
+rownames(pheno) = pheno$index
+mat = as.matrix(counts[,2:ncol(counts)])
+colnames(mat) = names(counts)[2:ncol(counts)]
+rownames(mat) = counts$index
+```
+
+```{r}
+res = table(pheno$phase,pheno$time_point)
+res = t(res)
+res = res/rowSums(res)
+```
+
+```{r}
+library(reshape2)
+res_long <- melt(data = res, value.name = "proportion")
+```
+
+```{r}
+res_long = as.data.frame(res_long)
+results = res_long
+```
+
+```{r}
+colnames(results)[1:2] = c("time_point","phase")
+library(plyr)
+adata$semisup = revalue(adata$semisup, c("Early"="eEP", "Early_neurons"="eENP","Late_1" = "lEP1",
+             "Late_2" = "lEP2", "Late_neurons" = "lENP","Adult_neurons" = "EN", "Glia_1" = "EGC1", "Glia_2" = "EGC2"))
+
+results$time_point = factor(results$time_point, levels = c("E12.5", "E16.5", "P1", "P26", "P61", "E12.5_E15.5"))
+```
+
+```{r}
+cols = c('#1f77b4', '#ff7f0e', '#2ca02c')
+
+pdf("../../output/stacked_bars_proportion_phase.pdf", width = 5, height = 3)
+p1 = ggplot(results, aes(fill=phase, y=proportion, x=time_point)) + 
+    geom_bar(position="fill", stat="identity") + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme_classic() + xlab("Time Point") + ylab("Proportion") + theme(legend.title = element_blank()) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(angle = 90)) + theme(axis.title=element_text(size=15,family = "Helvetica", color = "black")) +  scale_fill_manual(values = cols)
+
+print(p1)
+dev.off()
+```
+

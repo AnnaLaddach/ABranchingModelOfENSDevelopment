@@ -1,0 +1,282 @@
+---
+title: "Plot weights/score for trajectory associated genes"
+output: html_notebook
+---
+
+```{r}
+devtools::load_all("/home/anna/Dropbox (The Francis Crick)/Documents/TrajectoryGeometry")
+library(TrajectoryGeometry)
+```
+
+```{r}
+ensNeur = readRDS("ensNeuralResults.rds")
+ensGlial = readRDS("ensGlialResults.rds")
+ensNeurBP = readRDS("./ensBranchPoint/neuralBranchPointResults_15.rds")
+ensNeurEarlyBP = readRDS("./ensBranchPoint/neuralBranchPointResults_15.rds")
+```
+
+```{r}
+var_loadings = read.csv("var_loadings.csv", stringsAsFactors = F)
+rownames(var_loadings) = var_loadings$index
+var_loadings = var_loadings[,2:16]
+var_loadings = as.matrix(var_loadings)
+```
+
+```{r}
+get_centers = function(answers){
+  centers = matrix(, nrow = 0, ncol = 15)
+  for (i in 1:length(answers)){
+    centers = rbind(centers, answers[[i]]$sphericalData$center)
+  }
+  return(centers)
+}
+neural_centers = get_centers(ensNeur[[15]])
+glial_centers = get_centers(ensGlial[[15]])
+neural_bp_centers = get_centers(ensNeurBP[["85"]])
+neural_early_centers = get_centers(ensNeurEarlyBP[["60"]])
+```
+
+
+```{r}
+neural_center = findSphereClusterCenter(neural_centers, statistic = "mean")
+glial_center = findSphereClusterCenter(glial_centers, statistic = "mean")
+neural_bp_center = findSphereClusterCenter(neural_bp_centers, statistic = "mean")
+neural_early_bp_center = findSphereClusterCenter(neural_early_centers, statistic = "mean")
+```
+
+
+```{r}
+plot(1:15,neural_bp_center, ylim = c(-1,1))
+points(1:15,neural_early_bp_center, col = "red")
+points(1:15,neural_center, col = "blue")
+points(1:15,glial_center, col = "purple")
+```
+
+```{r}
+glial_score = var_loadings %*% glial_center
+neural_score = var_loadings %*% neural_center
+neural_bp_score = var_loadings %*% neural_bp_center
+neural_early_bp_score = var_loadings %*% neural_early_bp_center
+```
+
+```{r}
+hist(glial_score)
+hist(neural_score)
+hist(neural_bp_score)
+hist(neural_early_bp_score)
+```
+```{r}
+rownames(var_loadings)[order(-glial_score)][1:20]
+rownames(var_loadings)[order(glial_score)][1:20]
+
+
+
+df_glial = data.frame(gene = c(rownames(var_loadings)[order(glial_score)][1:10],rownames(var_loadings)[order(-glial_score)][1:10][10:1]),
+                      score = c(glial_score[order(glial_score)][1:10],glial_score[order(-glial_score)][1:10][10:1]))
+df_glial$gene = factor(df_glial$gene, levels = df_glial$gene)
+pdf("glial_ENS_genes.pdf",height = 5.5, width = 3)
+p=ggplot(data=df_glial, aes(x=gene, y=score)) + ylab("Score") + xlab("") +
+  geom_bar(stat="identity", fill = "#624185" ) + coord_flip() + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(family = "Helvetica", color = "black",size = 15,angle = 90,vjust = 0.5, hjust=1))
+print(p)
+dev.off()
+```
+```{r}
+write.csv(df_glial, "/home/laddaca/Documents/SI_github/source_data/FigS2c_gliogenic.csv", row.names = F)
+```
+
+
+```{r}
+rownames(var_loadings)[order(-neural_score)][1:20]
+rownames(var_loadings)[order(neural_score)][1:20]
+
+
+
+df_neural = data.frame(gene = c(rownames(var_loadings)[order(neural_score)][1:10],rownames(var_loadings)[order(-neural_score)][1:10][10:1]),
+                      score = c(neural_score[order(neural_score)][1:10],neural_score[order(-neural_score)][1:10][10:1]))
+df_neural$gene = factor(df_neural$gene, levels = df_neural$gene)
+pdf("neural_ENS_genes.pdf",height = 5.5, width = 3)
+p=ggplot(data=df_neural, aes(x=gene, y=score)) + ylab("Score") + xlab("") +
+  geom_bar(stat="identity", fill = "#ff8a12") + coord_flip() + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(family = "Helvetica", color = "black",size = 15,angle = 90,vjust = 0.5, hjust=1))
+print(p)
+dev.off()
+```
+```{r}
+write.csv(df_neural, "/home/laddaca/Documents/SI_github/source_data/FigS2c_neurogenic.csv", row.names = F)
+```
+
+```{r}
+rownames(var_loadings)[order(-neural_bp_score)][1:20]
+rownames(var_loadings)[order(neural_bp_score)][1:20]
+
+
+
+df_neural_bp = data.frame(gene = c(rownames(var_loadings)[order(neural_bp_score)][1:10],rownames(var_loadings)[order(-neural_bp_score)][1:10][10:1]),
+                      score = c(neural_bp_score[order(neural_bp_score)][1:10],neural_bp_score[order(-neural_bp_score)][1:10][10:1]))
+df_neural_bp$gene = factor(df_neural_bp$gene, levels = df_neural_bp$gene)
+pdf("neural_bp_ENS_genes.pdf",height = 5.5, width = 3)
+p=ggplot(data=df_neural_bp, aes(x=gene, y=score)) + ylab("Score") + xlab("") +
+  geom_bar(stat="identity", fill = "#ff8a12") + coord_flip() + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(family = "Helvetica", color = "black",size = 15,angle = 90,vjust = 0.5, hjust=1))
+print(p)
+dev.off()
+```
+```{r}
+write.csv(df_neural_bp, "/home/laddaca/Documents/SI_github/source_data/FigS2c_neurogenic_bp.csv", row.names = F)
+```
+
+```{r}
+rownames(var_loadings)[order(-neural_early_bp_score)][1:20]
+rownames(var_loadings)[order(neural_early_bp_score)][1:20]
+
+
+
+df_neural_early_bp = data.frame(gene = c(rownames(var_loadings)[order(neural_early_bp_score)][1:10],rownames(var_loadings)[order(-neural_early_bp_score)][1:10][10:1]),
+                      score = c(neural_early_bp_score[order(neural_early_bp_score)][1:10],neural_early_bp_score[order(-neural_early_bp_score)][1:10][10:1]))
+df_neural_early_bp$gene = factor(df_neural_early_bp$gene, levels = df_neural_early_bp$gene)
+pdf("neural_early_bp_ENS_genes.pdf",height = 5.5, width = 3)
+p=ggplot(data=df_neural_early_bp, aes(x=gene, y=score)) + ylab("Score") + xlab("") +
+  geom_bar(stat="identity", fill = "#ff8a12") + coord_flip() + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(family = "Helvetica", color = "black",size = 15,angle = 90,vjust = 0.5, hjust=1))
+print(p)
+dev.off()
+```
+
+```{r}
+genes = c(rownames(var_loadings)[order(neural_early_bp_score)][1:10],rownames(var_loadings)[order(neural_bp_score)][1:10],rownames(var_loadings)[order(-neural_early_bp_score)][1:10][10:1],rownames(var_loadings)[order(-neural_bp_score)][1:10][10:1])
+genes = unique(genes)
+write.csv(genes,"early_late_genes.csv",quote = F, row.names = F)
+getwd()
+df_early = data.frame(gene = genes, score = neural_early_bp_score[genes,],trajectory = "Early")
+df_late = data.frame(gene = genes, score = neural_bp_score[genes,],trajectory = "Late")
+df_early_late =rbind(df_early,df_late)
+df_early_late$gene = as.factor(df_early_late$gene)
+df_early_late$gene = factor(df_early_late$gene, levels = genes)
+pdf("early_late_ENS_genes.pdf",height = 7, width = 4)
+p=ggplot(data=df_early_late, aes(x=gene, y=score, fill = trajectory)) + ylab("Score") + xlab("") +
+  geom_bar(position="dodge",stat="identity") + coord_flip() + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(family = "Helvetica", color = "black",size = 15,angle = 90,vjust = 0.5, hjust=1)) + scale_fill_manual(values = c("magenta","springgreen4")) +
+  theme(legend.title = element_blank())
+
+print(p)
+dev.off()
+
+
+
+pdf("early_late_ENS_genes_horiz.pdf",height = 3, width = 7.5)
+p=ggplot(data=df_early_late, aes(x=gene, y=score, fill = trajectory)) + ylab("Score") + xlab("") +
+  geom_bar(position="dodge",stat="identity") + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(family = "Helvetica", color = "black",size = 15,angle = 90,vjust = 0.5, hjust=1)) + scale_fill_manual(values = c("magenta","springgreen4")) +
+  theme(legend.title = element_blank())
+
+print(p)
+dev.off()
+```
+```{r}
+genes = c(rownames(var_loadings)[order(neural_early_bp_score)][1:10],rownames(var_loadings)[order(neural_bp_score)][1:10],rownames(var_loadings)[order(-neural_early_bp_score)][1:10][10:1],rownames(var_loadings)[order(-neural_bp_score)][1:10][10:1])
+genes = unique(genes)
+write.csv(genes,"early_late_genesv3.csv",quote = F, row.names = F)
+getwd()
+df_early = data.frame(gene = genes, score = neural_early_bp_score[genes,],trajectory = "Early")
+df_early$sign = NA
+df_early$sign[df_early$score > 0] = 1
+df_early$sign[df_early$score < 0] = 0
+
+df_late = data.frame(gene = genes, score = neural_bp_score[genes,],trajectory = "Late")
+df_late$sign = NA
+df_late$sign[df_late$score > 0] = 1
+df_late$sign[df_late$score < 0] = 0
+
+diff = df_early$score - df_late$score
+abs_diff = abs(diff)
+df_early = df_early[order(abs_diff,decreasing = T),]
+df_late = df_late[order(abs_diff,decreasing = T),]
+df_early = df_early[order(df_early$sign),]
+
+df_early_late =rbind(df_early,df_late)
+df_early_late
+
+df_early_late$gene = as.factor(df_early_late$gene)
+df_early_late$gene = factor(df_early_late$gene, levels = df_early$gene)
+pdf("early_late_ENS_genes_v3.pdf",height = 7, width = 4)
+p=ggplot(data=df_early_late, aes(x=gene, y=score, fill = trajectory)) + ylab("Score") + xlab("") +
+  geom_bar(position="dodge",stat="identity") + coord_flip() + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(family = "Helvetica", color = "black",size = 15,angle = 90,vjust = 0.5, hjust=1)) + scale_fill_manual(values = c("magenta","springgreen4")) +
+  theme(legend.title = element_blank())
+
+print(p)
+dev.off()
+
+
+
+pdf("early_late_ENS_genes_horiz_v3.pdf",height = 3, width = 7.5)
+p=ggplot(data=df_early_late, aes(x=gene, y=score, fill = trajectory)) + ylab("Score") + xlab("") +
+  geom_bar(position="dodge",stat="identity") + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(family = "Helvetica", color = "black",size = 15,angle = 90,vjust = 0.5, hjust=1)) + scale_fill_manual(values = c("magenta","springgreen4")) +
+  theme(legend.title = element_blank())
+
+print(p)
+dev.off()
+```
+```{r}
+genes = c(rownames(var_loadings)[order(-neural_early_bp_score)][1:10][10:1],rownames(var_loadings)[order(-neural_bp_score)][1:10][10:1])
+genes = unique(genes)
+
+getwd()
+df_early = data.frame(gene = genes, score = neural_early_bp_score[genes,],trajectory = "Early")
+df_early$sign = NA
+df_early$sign[df_early$score > 0] = 1
+df_early$sign[df_early$score < 0] = 0
+
+
+df_late = data.frame(gene = genes, score = neural_bp_score[genes,],trajectory = "Late")
+df_late$sign = NA
+df_late$sign[df_late$score > 0] = 1
+df_late$sign[df_late$score < 0] = 0
+
+diff = df_early$score - df_late$score
+abs_diff = abs(diff)
+df_early = df_early[order(abs_diff,decreasing = T),]
+df_late = df_late[order(abs_diff,decreasing = T),]
+df_early = df_early[order(df_early$sign),]
+
+df_early_late =rbind(df_early,df_late)
+
+df_early_late$gene = factor(df_early_late$gene, levels = df_early$gene)
+
+pdf("early_late_ENS_genes_pos.pdf",height = 2.5, width = 7)
+p=ggplot(data=df_early_late, aes(x=gene, y=score, fill = trajectory)) + ylab("Score") + xlab("") +
+  geom_bar(position="dodge",stat="identity") + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(family = "Helvetica", color = "black",size = 15,angle = 90,vjust = 0.5, hjust=1)) + scale_fill_manual(values = c("magenta","springgreen4")) +
+  theme(legend.title = element_blank())
+
+print(p)
+dev.off()
+```
+
+```{r}
+genes = c(rownames(var_loadings)[order(neural_early_bp_score)][1:10],rownames(var_loadings)[order(neural_bp_score)][1:10])
+genes = unique(genes)
+
+getwd()
+df_early = data.frame(gene = genes, score = neural_early_bp_score[genes,],trajectory = "Early")
+df_early$sign = NA
+df_early$sign[df_early$score > 0] = 1
+df_early$sign[df_early$score < 0] = 0
+
+
+df_late = data.frame(gene = genes, score = neural_bp_score[genes,],trajectory = "Late")
+df_late$sign = NA
+df_late$sign[df_late$score > 0] = 1
+df_late$sign[df_late$score < 0] = 0
+
+diff = df_early$score - df_late$score
+abs_diff = abs(diff)
+df_early = df_early[order(abs_diff,decreasing = T),]
+df_late = df_late[order(abs_diff,decreasing = T),]
+df_early = df_early[order(df_early$sign),]
+
+df_early_late =rbind(df_early,df_late)
+
+df_early_late$gene = factor(df_early_late$gene, levels = df_early$gene)
+
+pdf("early_late_ENS_genes_neg.pdf",height = 2.5, width = 7)
+p=ggplot(data=df_early_late, aes(x=gene, y=score, fill = trajectory)) + ylab("Score") + xlab("") +
+  geom_bar(position="dodge",stat="identity") + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(family = "Helvetica", color = "black",size = 15,angle = 90,vjust = 0.5, hjust=1)) + scale_fill_manual(values = c("magenta","springgreen4")) +
+  theme(legend.title = element_blank())
+
+print(p)
+dev.off()
+```

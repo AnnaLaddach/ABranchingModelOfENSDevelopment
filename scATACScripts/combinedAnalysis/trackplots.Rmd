@@ -1,0 +1,371 @@
+---
+title: "Make trackplots"
+output: html_notebook
+---
+
+```{r}
+library(ArchR)
+addArchRThreads(threads = 6) 
+addArchRGenome("mm10")
+```
+
+```{r}
+project = loadArchRProject(path = "./output")
+```
+
+```{r}
+palette = c("#bcbd22", '#e377c2','#7f7f7f', "black", "dark cyan")
+```
+
+```{r}
+make_track_plot = function(gene){
+markerGenes  <- c(
+    gene
+  )
+
+p <- plotBrowserTrack(
+    ArchRProj = project, 
+    groupBy = "cell_type", 
+    geneSymbol = markerGenes, 
+    upstream = 10000,
+    downstream = 10000,
+    loops = NULL,
+    useGroups = c("autonomic","EGC1","EGC2","oligodendrocytes","astrocytes"),
+    pal = palette
+)
+
+plotPDF(plotList = p, 
+    name = paste0(gene,".pdf"), 
+    ArchRProj = project, 
+    addDOC = FALSE, width = 4, height = 3)
+}
+```
+
+```{r}
+for (gene in c("Hmga2", "Zfhx3", "Igf2bp2")){
+  make_track_plot(gene)
+}
+```
+
+```{r}
+make_track_plot("Sox11")
+```
+
+
+```{r}
+for (gene in c("Cux2","Egfl8","Runx1t1","Dlx5","Gm48206")){
+  make_track_plot(gene)
+}
+```
+
+```{r}
+markerGenes  <- c(
+    "Phox2b"
+  )
+
+p <- plotBrowserTrack(
+    ArchRProj = project, 
+    groupBy = "cell_type", 
+    geneSymbol = markerGenes, 
+    upstream = 10000,
+    downstream = 10000,
+    loops = NULL,
+    useGroups = c("autonomic","EGC1","EGC2","oligodendrocytes","astrocytes"),
+    pal = palette
+)
+
+plotPDF(plotList = p, 
+    name = "Phox2b.pdf", 
+    ArchRProj = project, 
+    addDOC = FALSE, width = 4, height = 3)
+```
+
+
+```{r}
+markerGenes  <- c(
+    "Cux2","Runx1t1","Abcg1","Dlx5","Gm48206"
+  )
+
+p <- plotBrowserTrack(
+    ArchRProj = project, 
+    groupBy = "cell_type", 
+    geneSymbol = markerGenes, 
+    upstream = 10000,
+    downstream = 10000,
+    loops = NULL,
+    useGroups = c("autonomic","EGC1","EGC2","oligodendrocytes","astrocytes"),
+    pal = palette
+)
+
+plotPDF(plotList = p, 
+    name = "early_mods_down_autonomic.pdf", 
+    ArchRProj = project, 
+    addDOC = FALSE, width = 4, height = 3)
+```
+
+
+
+
+```{r}
+markerGenes  <- c(
+    "Cxcl10", "Irf1","Ccl2","Gbp7","Cd74", "Ccl2","Gbp4","Stat1"
+  )
+
+p <- plotBrowserTrack(
+    ArchRProj = project, 
+    groupBy = "cell_type", 
+    geneSymbol = markerGenes, 
+    upstream = 10000,
+    downstream = 10000,
+    loops = NULL,
+    useGroups = c("autonomic","EGC1","EGC2","oligodendrocytes","astrocytes"),
+    pal = palette
+)
+
+plotPDF(plotList = p, 
+    name = "Immune_genes.pdf", 
+    ArchRProj = project, 
+    addDOC = FALSE, width = 4, height = 3)
+```
+```{r}
+markerGenes  <- c(
+    "Cxcl10"
+  )
+
+p <- plotBrowserTrack(
+    ArchRProj = project[project$cell_type2 == "EGC"], 
+   # groupBy = "cell_type2", 
+    geneSymbol = markerGenes, 
+    upstream = 5000,
+    downstream = 2000,
+    loops = NULL
+    #useGroups = c("autonomic","EGC1","EGC2","oligodendrocytes","astrocytes"),
+
+)
+
+plotPDF(plotList = p, 
+    name = "Cxcl10_EGC.pdf", 
+    ArchRProj = project, 
+    addDOC = FALSE, width = 4, height = 2)
+```
+
+
+```{r}
+markerGenes  <- c(
+    "Cxcl10"
+  )
+
+p <- plotBrowserTrack(
+    ArchRProj = project[project$cell_type2 == "EGC"], 
+    groupBy = "cell_type2", 
+    geneSymbol = markerGenes, 
+    upstream = 5000,
+    downstream = 2000,
+    loops = NULL
+    #useGroups = c("autonomic","EGC1","EGC2","oligodendrocytes","astrocytes"),
+
+)
+
+plotPDF(plotList = p, 
+    name = "Cxcl10_EGC.pdf", 
+    ArchRProj = project, 
+    addDOC = FALSE, width = 4, height = 2)
+```
+
+```{r}
+palette = c("#bcbd22", '#e377c2')#,'#7f7f7f', "black", "dark cyan")
+
+p <- plotBrowserTrack(
+    ArchRProj = project,#[project$cell_type2 %in% c("autonomic","EGC"], 
+    groupBy = "cell_type2", 
+    geneSymbol = c("Cxcl10"), 
+    upstream = 5000,
+    downstream = 2000,
+    loops = NULL,
+    pal = palette,
+    useGroups = c("autonomic","EGC") #,"EGC2","oligodendrocytes","astrocytes"),
+)
+
+plotPDF(plotList = p, 
+    name = "Cxcl10_autonomic_EGC.pdf", 
+    ArchRProj = project, 
+    addDOC = FALSE, width = 4, height = 2)
+```
+
+```{r}
+palette = c("#bcbd22", '#e377c2')#,'#7f7f7f', "black", "dark cyan")
+
+p <- plotBrowserTrack(
+    ArchRProj = project,#[project$cell_type2 %in% c("autonomic","EGC"], 
+    groupBy = "cell_type2", 
+    geneSymbol = c("Hmga2"), 
+    upstream = 10000,
+    downstream = 10000,
+    loops = NULL,
+    pal = palette,
+    plotSummary = c("bulkTrack","geneTrack"),
+    useGroups = c("autonomic","EGC") #,"EGC2","oligodendrocytes","astrocytes"),
+)
+
+plotPDF(plotList = p, 
+    name = "Hmga2_autonomic_EGC_v2.pdf", 
+    ArchRProj = project, 
+    addDOC = FALSE, width = 4, height = 2)
+```
+
+```{r}
+palette = c("#bcbd22", '#e377c2')#,'#7f7f7f', "black", "dark cyan")
+
+p <- plotBrowserTrack(
+    ArchRProj = project,#[project$cell_type2 %in% c("autonomic","EGC"], 
+    groupBy = "cell_type2", 
+    geneSymbol = c("Igf2bp2"), 
+    upstream = 10000,
+    downstream = 10000,
+    loops = NULL,
+    pal = palette,
+    plotSummary = c("bulkTrack","geneTrack"),
+    useGroups = c("autonomic","EGC") #,"EGC2","oligodendrocytes","astrocytes"),
+)
+
+plotPDF(plotList = p, 
+    name = "Igf2bp2_autonomic_EGC_v2.pdf", 
+    ArchRProj = project, 
+    addDOC = FALSE, width = 4, height = 2)
+```
+
+```{r}
+markerGenes  <- c(
+    "Dpysl3"
+  )
+
+p <- plotBrowserTrack(
+    ArchRProj = project, 
+    groupBy = "cell_type", 
+    geneSymbol = markerGenes, 
+    upstream = 200000,
+    downstream = 10000,
+    loops = NULL,
+    useGroups = c("autonomic","EGC1","EGC2","oligodendrocytes","astrocytes"),
+    pal = palette
+)
+
+plotPDF(plotList = p, 
+    name = "Dpysl3.pdf", 
+    ArchRProj = project, 
+    addDOC = FALSE, width = 4, height = 3)
+```
+
+
+
+
+```{r}
+markerGenes  <- c(
+    "Dpysl3"
+  )
+
+p <- plotBrowserTrack(
+    ArchRProj = project, 
+    groupBy = "cell_type", 
+    geneSymbol = markerGenes, 
+    upstream = 10000,
+    downstream = 10000,
+    loops = NULL,
+    useGroups = c("autonomic","EGC1","EGC2","oligodendrocytes","astrocytes"),
+    pal = palette
+)
+
+plotPDF(plotList = p, 
+    name = "Dpysl3_10000.pdf", 
+    ArchRProj = project, 
+    addDOC = FALSE, width = 4, height = 3)
+```
+
+```{r}
+markerGenes  <- c(
+    "Cux2"
+  )
+
+p <- plotBrowserTrack(
+    ArchRProj = project, 
+    groupBy = "cell_type", 
+    geneSymbol = markerGenes, 
+    upstream = 10000,
+    downstream = 10000,
+    loops = NULL,
+    useGroups = c("autonomic","EGC1","EGC2","oligodendrocytes","astrocytes"),
+    pal = palette
+)
+
+plotPDF(plotList = p, 
+    name = "Cux2.pdf", 
+    ArchRProj = project, 
+    addDOC = FALSE, width = 4, height = 3)
+```
+
+
+```{r}
+markerGenes  <- c(
+    "Cux2"
+  )
+
+p <- plotBrowserTrack(
+    ArchRProj = project, 
+    groupBy = "cell_type", 
+    geneSymbol = markerGenes, 
+    upstream =200000,
+    downstream = 10000,
+    loops = NULL,
+    useGroups = c("autonomic","EGC1","EGC2","oligodendrocytes","astrocytes"),
+    pal = palette
+)
+
+plotPDF(plotList = p, 
+    name = "Cux2_200000.pdf", 
+    ArchRProj = project, 
+    addDOC = FALSE, width = 4, height = 3)
+```
+
+```{r}
+markerGenes  <- c(
+    "Dpysl2"
+  )
+
+p <- plotBrowserTrack(
+    ArchRProj = project, 
+    groupBy = "cell_type", 
+    geneSymbol = markerGenes, 
+    upstream = 10000,
+    downstream = 10000,
+    loops = NULL,
+    useGroups = c("autonomic","EGC1","EGC2","oligodendrocytes","astrocytes"),
+    pal = palette
+)
+
+plotPDF(plotList = p, 
+    name = "Dpysl2.pdf", 
+    ArchRProj = project, 
+    addDOC = FALSE, width = 4, height = 3)
+```
+
+```{r}
+markerGenes  <- c(
+    "Dpysl2"
+  )
+
+p <- plotBrowserTrack(
+    ArchRProj = project, 
+    groupBy = "cell_type", 
+    geneSymbol = markerGenes, 
+    upstream = 100000,
+    downstream = 10000,
+    loops = NULL,
+    useGroups = c("autonomic","EGC1","EGC2","oligodendrocytes","astrocytes"),
+    pal = palette
+)
+
+plotPDF(plotList = p, 
+    name = "Dpysl2_100000.pdf", 
+    ArchRProj = project, 
+    addDOC = FALSE, width = 4, height = 3)
+```

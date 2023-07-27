@@ -1,0 +1,67 @@
+---
+title: "More UMAP plots"
+output: html_notebook
+---
+
+```{r}
+library(Seurat)
+```
+
+```{r}
+data = readRDS("seurat_object.rds")
+```
+
+```{r}
+library(viridis)
+png("./output/Plots/Sox10_motif_UMAP.png", width = 5, height = 4, units = "in", res = 300)
+p = FeaturePlot(object = data, features = c("Sox10.HMG-259"),
+                label = F,max.cutoff = "q95", order = T)
+p = p + theme(axis.text=element_text(size=20),axis.title=element_text(size=20),plot.title = element_blank()) + scale_color_viridis()
+print(p)
+dev.off()
+```
+
+```{r}
+png("./output/Plots/Irf1_motif_UMAP.png", width = 5, height = 4, units = "in", res = 300)
+p = FeaturePlot(object = data, features = c("IRF1.IRF-136"),
+                label = F,max.cutoff = "q95", order = T)
+p = p + theme(axis.text=element_text(size=20),axis.title=element_text(size=20),plot.title = element_blank()) + scale_color_viridis()
+print(p)
+dev.off()
+```
+```{r}
+png("./output/Plots/Isre.IRF_motif_UMAP.png", width = 5, height = 4, units = "in", res = 300)
+p = FeaturePlot(object = data, features = c("ISRE.IRF-140"),
+                label = F,max.cutoff = "q95", order = T)
+p = p + theme(axis.text=element_text(size=20),axis.title=element_text(size=20),plot.title = element_blank()) + scale_color_viridis()
+print(p)
+dev.off()
+```
+
+```{r}
+palette = c("dark cyan", "#bcbd22", '#e377c2','#7f7f7f', "black")
+```
+
+```{r}
+data$cell_type2[data$cell_type2 == "EGC"] = "EGCs"
+```
+
+```{r}
+png("./output/Plots/cell_type_UMAP.png", width = 6, height = 4, units = "in", res = 300)
+p = DimPlot(object = data, group.by = "cell_type",shuffle = T, cols = palette, label = F)
+p = p + theme(axis.text=element_text(size=20),axis.title=element_text(size=20),plot.title = element_blank())
+print(p)
+dev.off()
+```
+
+```{r}
+png("./output/Plots/cell_type2_UMAP.png", width = 6, height = 4, units = "in", res = 300)
+p = DimPlot(object = data, group.by = "cell_type2",shuffle = T,label = F, cols = "alphabet")
+p = p + theme(axis.text=element_text(size=20),axis.title=element_text(size=20),plot.title = element_blank())
+print(p)
+dev.off()
+```
+
+
+
+

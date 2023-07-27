@@ -1,0 +1,50 @@
+---
+title: "Plot cell cycle phase proportions"
+output: html_notebook
+---
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+#read in data
+pheno = read.csv("obs_wt_ra_filtered.csv")
+```
+
+```{r}
+res = table(pheno$phase,pheno$time_point)
+res = t(res)
+res = res/rowSums(res)
+```
+
+```{r}
+library(reshape2)
+res_long <- melt(data = res, value.name = "proportion")
+```
+
+```{r}
+res_long = as.data.frame(res_long)
+results = res_long
+```
+
+```{r}
+colnames(results)[1:2] = c("time_point","phase")
+results$time_point = factor(results$time_point, levels = c("DIV0", "DIV4", "DIV10", "DIV20"))
+```
+
+```{r}
+cols = c('#1f77b4', '#ff7f0e', '#2ca02c')
+
+pdf("../../output/integrated_all/stacked_bars_proportion_phase.pdf", width = 4, height = 3)
+p1 = ggplot(results, aes(fill=phase, y=proportion, x=time_point)) + 
+    geom_bar(position="fill", stat="identity") + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme_classic() + xlab("Time Point") + ylab("Proportion") + theme(legend.title = element_blank()) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(angle = 90)) + theme(axis.title=element_text(size=15,family = "Helvetica", color = "black")) +  scale_fill_manual(values = cols)
+
+print(p1)
+dev.off()
+```
+
+```{r}
+write.csv(results,"/home/laddaca/Documents/SI_github/source_data/FigS7d.csv", row.names = F)
+```
+

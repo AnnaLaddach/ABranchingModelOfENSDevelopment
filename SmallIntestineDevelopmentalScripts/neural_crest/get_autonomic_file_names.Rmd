@@ -1,0 +1,33 @@
+---
+title: "Determine SRA accessions for autonomic cells"
+output: html_notebook
+---
+
+
+```{r}
+pseudotime = read.csv("../../data/Table S3.csv",stringsAsFactors = F)
+sra = read.csv("../../data/sra_NC.csv",stringsAsFactors = F)
+```
+
+
+```{r}
+names(sra)
+sra$Experiment.Title
+
+library(stringr)
+sra$cell_name = lapply(sra$Experiment.Title,str_extract,"SS2[^;]*")
+```
+
+```{r}
+autonomic_cells = pseudotime$X[pseudotime$col.id == "red"]
+```
+```{r}
+autonomic_sra = sra[sra$cell_name %in% autonomic_cells,]
+
+sra_runs = read.csv("../../data/SraRunTableNC.txt", stringsAsFactors = F)
+
+sra_runs_selected = sra_runs[sra_runs$Experiment %in% autonomic_sra$Experiment.Accession,]
+
+write.csv(sra_runs_selected$Run, "../../data/autonomic_accessions.csv",row.names = F, quote = F)
+```
+

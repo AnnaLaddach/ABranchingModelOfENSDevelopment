@@ -1,0 +1,101 @@
+---
+title: "Early late comparison"
+output: html_notebook
+---
+
+
+
+```{r}
+tfs = read.table("/home/anna/software/Antler-master/inst/extdata/Annotations/TF_mmusculus_150722.dat",stringsAsFactors = F)
+early_sc = "../../output/DE_pseudotime/TF/neural_early_emb_10__smooth_curves_pseudotime.csv"
+
+late_sc = "../../output/DE_pseudotime/TF/neural_emb_10__smooth_curves_pseudotime.csv"
+
+genes_early =  read.csv("../../output/DE_pseudotime/TF/neural_early_emb_10__de_pseudotime.csv",stringsAsFactors = F)
+genes_late =  read.csv("../../output/DE_pseudotime/TF/neural_emb_10__de_pseudotime.csv",stringsAsFactors = F)
+```
+
+```{r}
+return_curves = function(file){
+  sc = read.table(file, sep = ",")
+  rownames(sc) = sc$V1
+  sc$V1 = NULL
+  sc = as.matrix(sc)
+  sc =  (sc- rowMin(sc))/(rowMax(sc)-rowMin(sc)) 
+  return(sc)
+}
+```
+
+```{r}
+early_curves = return_curves(early_sc)
+late_curves = return_curves(late_sc)
+
+genes = c(genes_early$X[genes_early$qval<0.05],genes_late$X[genes_late$qval<0.05])
+
+genes = unique(genes)
+
+
+
+# tfs = read.table("/home/anna/software/Antler-master/inst/extdata/Annotations/TF_mmusculus_150722.dat",stringsAsFactors = F)
+# 
+# genes = genes[genes %in% tfs$gene_name]
+
+genes[!(genes %in% rownames(early_curves))]
+#"Hoxa5"  "Hivep3" "Irf9"   "Ebf4"   "Foxo6"  "Scx"    "Dbp"    "Csdc2"  "Hmx3"   "Zbtb7c" "Foxj2"  "Pou2f2"
+genes[!(genes %in% rownames(late_curves))]
+
+genes = genes[genes %in% rownames(early_curves) & genes %in% rownames(late_curves)]
+
+
+early_curves = early_curves[genes,]
+late_curves = late_curves[genes,]
+
+curves = cbind(early_curves,late_curves)
+
+85/183.9148
+60/163.0446
+library(gplots)
+
+categories = c(rep(1,37),rep(2,63),rep(3,46),rep(4,54))
+
+cat_colours = c("black","magenta","black","springgreen4")
+breaks = seq(0,1,length = 101)
+color.palette = colorRampPalette(c("blue", "white", "red"))
+png("../../output/DE_pseudotime/all_tfs_early_late.png", height = 15, width = 10, units = "in", res = 300)
+h = heatmap.2(curves, Colv = F, Rowv = T, trace = 'none',ColSideColors=cat_colours[categories], breaks = breaks,col = color.palette,
+          cexRow = 0.5,labCol = F,colsep = c(37,100,146),sepwidth=c(0.2))
+dev.off()
+
+neurogenic_genes = c("Dlx5","Zfp941","Myt1","Gm5454","Tub","Onecut2","Tshz3","Ebf3","St18","Hes6")
+
+png("../../output/DE_pseudotime/tfs_early_late_neurogenic.png", height = 4, width = 6, units = "in", res = 300)
+h = heatmap.2(curves[neurogenic_genes,], Colv = F, Rowv = T, trace = 'none',ColSideColors=cat_colours[categories], breaks = breaks,col = color.palette,
+          cexRow = 1.2,labCol = F,colsep = c(37,100,146),sepwidth=c(0.2))
+dev.off()
+
+```
+
+```{r}
+tfs = genes[h$rowInd[length(h$rowInd):1]]
+write.csv(tfs,"../../output/DE_pseudotime/tf_list.csv", row.names = F, quote = F)
+
+rownames(genes_early) = genes_early$X
+rownames(genes_late) = genes_late$X
+qvals = cbind(-log10(genes_early[tfs,]$qval),-log10(genes_late[tfs,]$qval))
+
+rownames(qvals) = tfs
+color.palette = colorRampPalette(c("black","red"))(n=199)
+
+col_breaks = c(seq(0,1.30103,length=100), # for red
+seq(1.30104,max(qvals),length=100))
+
+col_breaks = unique(col_breaks)
+png("../../output/DE_pseudotime/tfs_early_late_signif.png", height = 8, width = 4, units = "in", res = 300)
+h = heatmap.2(qvals, Colv = F, Rowv = F, trace = 'none', breaks = col_breaks,col = color.palette,
+          cexRow = 0.8,labCol = F)
+dev.off()
+
+qval_bin = qval
+
+```
+

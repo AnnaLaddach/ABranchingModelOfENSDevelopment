@@ -1,0 +1,137 @@
+---
+title: "Gene module - CSDE1 target analysis"
+output: html_notebook
+---
+
+# Analysis of hESC DE data
+```{r}
+#read in genes which are DE upon CSDE1 KD
+increased = read.csv("../../data/CSDE1_data/hESCs/CSDE1_KD_increased.csv", stringsAsFactors = F)
+decreased = read.csv("../../data/CSDE1_data/hESCs/CSDE1_KD_decreased.csv", stringsAsFactors = F)
+```
+
+```{r}
+#map genes to mouse homologues from homologene
+mapping = read.csv("../../data/mouse_human_homologues.csv",stringsAsFactors = F)
+rownames(mapping) = mapping$X9606
+
+increased = increased[increased$gene_short_name %in% rownames(mapping),]
+increased_mouse = mapping[increased$gene_short_name,]$X10090
+
+decreased = decreased[decreased$gene_short_name %in% rownames(mapping),]
+decreased_mouse = mapping[decreased$gene_short_name,]$X10090
+```
+
+```{r}
+get_name = function(name){
+  try(return(strsplit(name,'\\.')[[1]][1]))
+}
+
+
+hESC_stats = function(m,background){
+  results = data.frame(module = numeric(), n_decreased = numeric(), n_increased = numeric(), size = numeric(),pval = numeric(),
+                       odds_ratio = numeric(), decreased_genes = character, increased_genes = character())
+  genes = list()
+  
+  #make sure background is what is in our dataset
+  decreased_mouse = decreased_mouse[decreased_mouse %in% background]
+  increased_mouse = increased_mouse[increased_mouse %in% background]
+  
+  for (i in 1:length(m$topCorr_DR$genemodules)){
+    gene_module_genes = as.character(lapply(as.character(m$topCorr_DR$genemodules[[i]]),get_name))
+    decreased_genes = decreased_mouse[decreased_mouse %in% m$topCorr_DR$genemodules[[i]]]
+    increased_genes = increased_mouse[increased_mouse %in% m$topCorr_DR$genemodules[[i]]] 
+    n_decreased = length(unique(decreased_genes))
+    n_increased = length(unique(increased_genes))
+    res = fisher.test(rbind(c(n_decreased,length(unique(decreased_mouse))-n_decreased),
+                      c(n_increased,length(unique(increased_mouse))-n_increased)))
+    results = rbind(results, data.frame(module = i, n_decreased = n_decreased,
+                                        n_increased = n_increased,
+                                        size = length(m$topCorr_DR$genemodules[[i]]),
+                                        pval = res$p.value,odds_ratio = res$estimate,
+                                        decreased_genes = paste(unique(decreased_genes), collapse='|'),
+                                        increased_genes = paste(unique(increased_genes), collapse='|')))
+    genes[[i]] = list("decreased_genes"  = unique(decreased_genes),
+                      "increased_genes"  = unique(increased_genes))
+  }
+  
+  results$qval = p.adjust(results$pval, method = 'fdr')
+  return(results)
+}
+```
+
+```{r}
+m = readRDS('../../output/gene_modules/all_data/antler_obj.RDS')
+de_genes = read.csv('../../output/wilcox_markers.csv',stringsAsFactors = F)
+background = as.character(lapply(as.character(de_genes$genes),get_name))
+
+results = hESC_stats(m,background)
+write.csv(results, '../../output/gene_modules/all_data/csde1_KD_GM_results.csv', row.names = F)
+```
+
+```{r}
+m = readRDS('../../output/gene_modules/embryonic_data/emb_antler_object.rds')
+de_genes = read.csv('../../output/wilcox_markers.csv',stringsAsFactors = F)
+background = as.character(lapply(as.character(de_genes$genes),get_name))
+results = hESC_stats(m,background)
+write.csv(results, '../../output/gene_modules/embryonic_data/emb_csde1_KD_GM_results.csv', row.names = F)
+```
+
+# Analysis of iCLIP data
+```{r}
+iclip = read.csv("../../data/CSDE1_data/iCLIP/iclip_cancer.csv", stringsAsFactors = F)
+genes = iclip$overlap...iCLIP.targets
+
+mapping = read.csv("../../data/mouse_human_homologues.csv",stringsAsFactors = F)
+rownames(mapping) = mapping$X9606
+
+genes = genes[genes %in% rownames(mapping)]
+genes_mouse = mapping[genes,]$X10090
+```
+
+```{r}
+de_genes = read.csv('../../output/wilcox_markers.csv',stringsAsFactors = F)
+background = as.character(lapply(as.character(de_genes$genes),get_name))
+background = background[background %in% mapping$X10090]
+background = unique(background)
+iclip_genes = genes_mouse[genes_mouse %in% background]
+```
+
+```{r}
+iCLIP_stats = function(m,background){
+  results = data.frame(gene_module = numeric(),n_genes_module = numeric(),     n_genes_iclip = numeric(), genes = character(),pval = numeric())
+  for (i in 1:length(m$topCorr_DR$genemodules)){
+    gene_module_genes = as.character(lapply(as.character(m$topCorr_DR$genemodules[[i]]),get_name))
+    gene_module_genes = gene_module_genes[gene_module_genes %in% mapping$X10090]
+    if (length(gene_module_genes) < 1){
+      next
+    }
+    target_genes = iclip_genes[iclip_genes %in% gene_module_genes]
+    pval = phyper(length(target_genes), length(iclip_genes),length(background) - length(iclip_genes),length(gene_module_genes), lower.tail = F)
+    result = data.frame(gene_module = i, n_genes_module = length(gene_module_genes),
+                        n_genes_iclip = length(target_genes),
+                        genes = paste(target_genes, collapse='|'), pval = pval)
+    results = rbind(results,result)
+  }
+  results$qval = p.adjust(results$pval,method = 'fdr')
+  return(results)
+}
+```
+
+
+```{r}
+m = readRDS('../../output/gene_modules/all_data/antler_obj.RDS')
+#de_genes = read.csv('../../output/wilcox_markers.csv',stringsAsFactors = F)
+#background = as.character(lapply(as.character(de_genes$genes),get_name))
+results = iCLIP_stats(m,background)
+write.csv(results, '../../output/gene_modules/all_data/csde1_iCLIP_GM_results_corrected.csv', row.names = F)
+```
+
+
+```{r}
+m = readRDS('../../output/gene_modules/embryonic_data/emb_antler_object.rds')
+#de_genes = read.csv('../../output/wilcox_markers.csv',stringsAsFactors = F)
+#background = as.character(lapply(as.character(de_genes$genes),get_name))
+results = iCLIP_stats(m,background)
+write.csv(results, '../../output/gene_modules/embryonic_data/emb_csde1_iCLIP_GM_results_corrected.csv', row.names = F)
+```

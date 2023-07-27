@@ -1,0 +1,115 @@
+---
+title: "DE between NPC clusters"
+output: html_notebook
+---
+
+
+
+```{r}
+library(Seurat)
+library(MAST)
+```
+
+```{r}
+#read in data
+counts = read.csv("../../output/adata_anno_counts_new.csv")
+pheno = read.csv("../../output/adata_obs_anno_new.csv")
+
+mat = as.matrix(counts[,2:ncol(counts)])
+colnames(mat) = names(counts)[2:ncol(counts)]
+rownames(mat) = counts$index
+rownames(pheno) = colnames(mat)
+```
+
+```{r}
+data = CreateSeuratObject(mat, meta.data = pheno)
+```
+
+```{r}
+data = NormalizeData(data,scale.factor = 1e6)
+```
+```{r}
+data = data[,data$time_point != "E14"]
+```
+
+
+```{r}
+data$id =paste0(data$time_point, "_", data$louvain_semisup)
+```
+
+```{r}
+unique(data$id)
+```
+```{r}
+E12_eENP_v_E16_lENP = FindMarkers(data, ident.1 = "E12_eENP", ident.2 = "E16_lENP", test.use = "MAST", latent.vars = "nFeature_RNA", group.by = "id")
+E12_eENP_v_P00_lENP = FindMarkers(data, ident.1 = "E12_eENP", ident.2 = "P00_lENP", test.use = "MAST", latent.vars = "nFeature_RNA", group.by = "id")
+E16_lENP_v_P00_lENP = FindMarkers(data, ident.1 = "E16_lENP", ident.2 = "P00_lENP", test.use = "MAST", latent.vars = "nFeature_RNA", group.by = "id")
+
+E12_eENP_v_E12_eEP = FindMarkers(data, ident.1 = "E12_eENP", ident.2 = "E12_eEP", test.use = "MAST", latent.vars = "nFeature_RNA", group.by = "id")
+E16_lENP_v_E16_lEP = FindMarkers(data, ident.1 = "E16_lENP", ident.2 = "E16_lEP1", test.use = "MAST", latent.vars = "nFeature_RNA", group.by = "id")
+P00_lENP_v_P00_lEP = FindMarkers(data, ident.1 = "P00_lENP", ident.2 = "P00_lEP2", test.use = "MAST", latent.vars = "nFeature_RNA", group.by = "id")
+```
+
+```{r}
+add_log2fc = function(de){
+  de$log2FC = de$avg_logFC/log(2)
+  return(de)
+}
+```
+
+```{r}
+E12_eENP_v_E16_lENP = add_log2fc(E12_eENP_v_E16_lENP)
+E12_eENP_v_P00_lENP = add_log2fc(E12_eENP_v_P00_lENP)
+E16_lENP_v_P00_lENP = add_log2fc(E16_lENP_v_P00_lENP)
+
+E12_eENP_v_E12_eEP = add_log2fc(E12_eENP_v_E12_eEP)
+E16_lENP_v_E16_lEP = add_log2fc(E16_lENP_v_E16_lEP)
+P00_lENP_v_P00_lEP = add_log2fc(P00_lENP_v_P00_lEP)
+```
+
+```{r}
+up_E12_v_E16 = rownames(E12_eENP_v_E16_lENP)[E12_eENP_v_E16_lENP$p_val_adj <= 0.01 & E12_eENP_v_E16_lENP$log2FC >= 1]
+up_E12_v_P00 = rownames(E12_eENP_v_P00_lENP)[E12_eENP_v_P00_lENP$p_val_adj <= 0.01 & E12_eENP_v_P00_lENP$log2FC >= 1]
+
+up_E16_v_E12 = rownames(E12_eENP_v_E16_lENP)[E12_eENP_v_E16_lENP$p_val_adj <= 0.01 & E12_eENP_v_E16_lENP$log2FC <= -1]
+up_P00_v_E12 = rownames(E12_eENP_v_P00_lENP)[E12_eENP_v_P00_lENP$p_val_adj <= 0.01 & E12_eENP_v_P00_lENP$log2FC <= -1]
+
+up_E16_v_P00 = rownames(E16_lENP_v_P00_lENP)[E16_lENP_v_P00_lENP$p_val_adj <= 0.01 & E12_eENP_v_E16_lENP$log2FC >= 1]
+up_P00_v_E16 = rownames(E16_lENP_v_P00_lENP)[E16_lENP_v_P00_lENP$p_val_adj <= 0.01 & E12_eENP_v_E16_lENP$log2FC <= -1]
+
+up_E12_eENPs = rownames(E12_eENP_v_E12_eEP)[E12_eENP_v_E12_eEP$p_val_adj <= 0.01 & E12_eENP_v_E12_eEP$log2FC >= 1]
+up_E16_lENPs = rownames(E16_lENP_v_E16_lEP)[E16_lENP_v_E16_lEP$p_val_adj <= 0.01 & E16_lENP_v_E16_lEP$log2FC >= 1]
+up_P00_lENPs = rownames(P00_lENP_v_P00_lEP)[P00_lENP_v_P00_lEP$p_val_adj <= 0.01 & P00_lENP_v_P00_lEP$log2FC >= 1]
+```
+
+```{r}
+E12_res1 = up_E12_v_E16[up_E12_v_E16 %in% up_E12_eENPs]
+```
+
+```{r}
+E12_res2 = up_E12_v_P00[up_E12_v_P00 %in% up_E12_eENPs]
+```
+
+```{r}
+E16_res1 = up_E16_v_E12[up_E16_v_E12 %in% up_E16_lENPs]
+E16_res2 =  up_E16_v_P00[up_E16_v_P00 %in% up_E16_lENPs]
+```
+
+```{r}
+P00_res1 = up_P00_v_E12[up_P00_v_E12 %in% up_P00_lENPs]
+P00_res2 =  up_P00_v_E16[up_P00_v_E16 %in% up_P00_lENPs]
+```
+
+```{r}
+write.csv(early_neuronal,"../../output/MAST/early_neuronal.csv")
+```
+
+```{r}
+write.csv(E12_eENP_v_E16_lENP,"../../output/MAST/E12_eENP_v_E16_lENP.csv")
+write.csv(E12_eENP_v_P00_lENP,"../../output/MAST/E12_eENP_v_P00_lENP.csv")
+write.csv(E16_lENP_v_P00_lENP,"../../output/MAST/E16_lENP_v_P00_lENP.csv")
+write.csv(E12_eENP_v_E12_eEP,"../../output/MAST/E12_eENP_v_E12_eEP.csv")
+write.csv(E16_lENP_v_E16_lEP,"../../output/MAST/E16_lENP_v_E16_lEP.csv")
+write.csv(P00_lENP_v_P00_lEP,"../../output/MAST/P00_lENP_v_P00_lEP.csv")
+```
+

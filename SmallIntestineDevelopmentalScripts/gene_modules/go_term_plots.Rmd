@@ -1,0 +1,61 @@
+---
+title: "Gene module functional analysis plots"
+output: html_notebook
+---
+
+
+```{r}
+modules = c(16,17,18,83,81,79,71,74,75,78)
+terms = c("GO:0050767","GO:0045666","GO:0016055","GO:0006325",
+          "GO:0007411",
+"GO:0042063",
+"GO:0030198", "GO:0009611","GO:0033993","GO:0007160",
+	"GO:0019882",
+"GO:0002682",
+"GO:0006954","GO:0071346"
+)
+```
+
+```{r}
+getwd()
+results = data.frame(name = as.character(),p_value = as.numeric(), intersection_size = as.numeric(),module = as.numeric())
+for (module in modules){
+  dat = read.csv(paste0("../../output/gene_modules/all_data/go_terms/functional_analysis_gene_modules_unfiltered/moduleG.M.", module,"_GO_BP.csv"))
+  dat = dat[dat$native %in% terms,]
+  dat = dat[c("name","p_value","intersection_size")]
+  dat$module = module
+  results = rbind(results, dat)
+}
+```
+
+
+```{r}
+library(viridis)
+library(ggplot2)
+results$module = as.factor(results$module)
+results$module = factor(results$module, levels = modules)
+results$name = as.factor(results$name)
+results$name = factor(results$name, levels = c("regulation of neurogenesis","positive regulation of neuron differentiation","Wnt signaling pathway","chromatin organization",
+                                               "axon guidance",
+"gliogenesis","extracellular matrix organization","response to wounding","response to lipid","cell-matrix adhesion",
+"antigen processing and presentation","regulation of immune system process",
+"inflammatory response","cellular response to interferon-gamma"))
+results$log_p = -log10(results$p_value)
+results$sig = 0
+results$sig[results$p_value < 0.01] = 1 
+results$sig = as.factor(results$sig)
+library(extrafont)
+font_import(paths = "/usr/share/fonts/truetype/myfonts/",prompt = F)
+pdf("../../output/go_term_summary5_h.pdf", width = 7, height = 3.5)
+p=ggplot(results, aes(x=module, y=name)) + geom_point(aes(size = intersection_size,color = results$sig)) +  scale_color_manual(values = c("black","red")) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.title=element_text(size=15,family = "Helvetica", color = "black")) + theme_classic()  + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + ylab("") + xlab("Gene Module") + theme(legend.title = element_blank()) + theme(axis.text.x = element_text(angle = 90))
+print(p)
+dev.off()
+```
+
+```{r}
+results$log_padj = -log10(results$p_value)
+names(results)[2] = "padj"
+write.csv(results, "../../source_data/Fig2b.csv", row.names = F)
+getwd()
+```
+

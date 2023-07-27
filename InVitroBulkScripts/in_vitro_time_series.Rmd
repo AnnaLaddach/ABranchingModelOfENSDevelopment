@@ -1,0 +1,93 @@
+---
+title: "Plot gene modules expression over time series in vitro bulk data"
+output: html_notebook
+---
+
+
+
+
+```{r}
+dat = read.csv('../../data/vpl195A.result.table.csv', stringsAsFactors = F)
+selected = dat[,grepl("*TPM",colnames(dat))]
+m = readRDS("../../output/gene_modules/all_data/antler_obj.RDS")
+```
+
+
+```{r}
+modules = c(16,17,18,83,81,79,71,74,75,78)
+results = selected[NULL,]
+colnames(results) = colnames(selected)
+for (module in modules){
+  genes = m$topCorr_DR$genemodules[[module]]
+  selected_mod = selected[dat$mgi_symbol %in% genes,]
+  selected_mod = t(scale(t(selected_mod)))
+  results = rbind(results,colMeans(selected_mod))
+}
+colnames(results) = colnames(selected)
+```
+
+```{r}
+modules = c(16,17,18,83,81,79,71,74,75,78)
+results = selected[NULL,]
+colnames(results) = colnames(selected)
+for (module in modules){
+  genes = gene_modules[[module]]
+  selected_mod = selected[dat$mgi_symbol %in% genes,]
+  selected_mod = t(scale(t(selected_mod)))
+  results = rbind(results,colMeans(selected_mod))
+}
+colnames(results) = colnames(selected)
+```
+
+```{r}
+rownames(results) = paste0("G.M.", modules)
+```
+
+```{r}
+results_long= data.frame(DIV = character(), module = character(),value = numeric())
+
+for (DIV in c("DIV0","DIV4","DIV11","DIV20")){
+  samples = grep(DIV, colnames(results))
+  for (sample in samples){
+    sample_df = data.frame(DIV = DIV, module = rownames(results), value = results[,sample])
+    results_long = rbind(results_long, sample_df)
+  }
+}
+```
+
+```{r}
+library(ggplot2)
+p<- ggplot(results_long[results_long$module== "G.M.16",], aes(x=DIV, y=value, group=module, color=module)) + 
+  geom_line() +
+  geom_point()
+  
+print(p)  
+  geom_errorbar(aes(ymin=len-sd, ymax=len+sd), width=.2,
+                 position=position_dodge(0.05))
+```
+
+```{r}
+library(dplyr)
+
+results_summary = results_long %>%
+  group_by(DIV, module) %>%
+  summarise_at(vars(value), list(mean = mean, sd = sd))
+```
+
+```{r}
+library(ggplot2)
+pdf("../../output/in_vitro/time_series.pdf", width = 4.5, height = 3)
+p = ggplot(results_summary[results_summary$module %in% c("G.M.16","G.M.81","G.M.75"),], aes(x=DIV, y= mean, group=module, color=module)) + 
+  geom_line() +
+  geom_point() +
+  geom_errorbar(aes(ymin=mean-sd, ymax=mean+sd), width=.2,
+                 position=position_dodge(0.05)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme_classic() + xlab("") + ylab("mean scaled expression") + theme(legend.title = element_blank()) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(angle = 90)) + theme(axis.title=element_text(size=15,family = "Helvetica", color = "black")) 
+
+print(p)
+dev.off()
+```
+
+```{r}
+write.csv(results_summary[results_summary$module %in% c("G.M.16","G.M.81","G.M.75"),],"../../source_data/Fig5i.csv", row.names = F)
+```
+

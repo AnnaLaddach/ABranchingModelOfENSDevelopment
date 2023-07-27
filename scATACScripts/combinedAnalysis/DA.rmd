@@ -1,0 +1,146 @@
+---
+title: "Differential accessibility - gene score"
+output: html_notebook
+---
+
+```{r}
+library(fgsea)
+library(ArchR)
+library(EnhancedVolcano)
+addArchRThreads(threads = 6) 
+addArchRGenome("mm10")
+```
+
+```{r}
+project = loadArchRProject(path = "./output")
+```
+```{r}
+da = list()
+celltypes = unique(project$cell_type2)
+
+num_celltypes = length(celltypes)
+for (i in 1:(num_celltypes-1)){
+  for (j in i:num_celltypes){
+    da[[paste(celltypes[i],celltypes[j], sep = '_')]] = getMarkerFeatures(
+      ArchRProj = project,  
+      useMatrix = "GeneScoreMatrix",
+      groupBy = "cell_type2",
+      testMethod = "wilcoxon",
+      bias = c("TSSEnrichment", "log10(nFrags)"),
+      useGroups = celltypes[i],
+      bgdGroups = celltypes[j]
+    )
+  }
+}
+```
+```{r}
+plot_volcano = function(da, module, comparison){
+
+  da = da[da$name %in% modules[[module]],]
+  
+  
+  pdf(paste0("volcano_ATAC_mod",module,"_", comparison,"_glia_v_autonomic_gs_v2.pdf"),width = 6, height =7)
+  p = EnhancedVolcano(da,
+                  x = 'Log2FC', y = 'FDR',
+                  lab = da$name,
+                  xlab = 'log2FC',
+                  ylab = bquote(~-Log[10]~adjusted~italic(P)),
+                  #xlim = c(-10,10),
+                   boxedLabels = F,
+                  drawConnectors = F,
+                  pCutoff = 0.01,
+                  FCcutoff = 1,
+                 pointSize = 3,
+                  labSize = 6.0,
+                  title = '',
+                  subtitle = '',
+                   caption = ''
+            
+  )  
+  print(p)
+  dev.off()
+}
+```
+
+```{r}
+saveRDS(da, "pairwiseGSDA_v2.rds")
+```
+
+```{r}
+da = readRDS("pairwiseGSDA_v2.rds")
+```
+
+```{r}
+antler_obj= readRDS("/home/anna/Dropbox (The Francis Crick)/Documents/single_cell_analysis/in_vivo_SI_all/final_results_and_scripts/output/gene_modules/all_data/antler_obj.RDS")
+modules = antler_obj$topCorr_DR$genemodules
+```
+
+```{r}
+for (module in c(16,17,18,83,81,79,71,74,75,78)){
+     plot_volcano(getMarkers(da$EGC_autonomic, cutOff = "abs(Log2FC) >= 0")$EGC,module,"EGC_autonomic")
+}
+
+```
+
+```{r}
+da_gsea <- getMarkers(da$EGC_autonomic, cutOff = "abs(Log2FC) >= 0")$EGC
+```
+
+```{r}
+da_sig <- getMarkers(da$EGC_autonomic, cutOff = "FDR <= 0.01 & abs(Log2FC) >= 1")$EGC
+```
+
+```{r}
+write.csv(da_gsea,"da_EGCs_autonomic_gs_sig.csv")
+```
+
+```{r}
+## read hallmark gene sets
+pathways = gmtPathways("./data/mmusculus.GO:BP.name.gmt")
+pathwaysDF = read.csv("./data/mmusculus.GO:BP.name.gmt", sep = "\t", header = F)
+#rownames(pathwaysDF) = pathwaysDF$V1
+length(pathwaysDF$V1)
+ length(unique(pathwaysDF$V1))
+ 
+
+pathwaysDF = pathwaysDF[!(duplicated(pathwaysDF$V1)),]
+rownames(pathwaysDF) = pathwaysDF$V1
+```
+```{r}
+set.seed(10)
+da_gsea$Log2FC
+da_gsea = da_gsea[order(da_gsea$Log2FC, decreasing=T),]
+ranks=setNames(da_gsea$Log2FC,da_gsea$name)
+#fgseaRes = fgsea(pathways, ranks, minSize=15, maxSize=2000, nperm=10000)
+fgseaRes = fgsea(pathways, ranks, minSize=15, maxSize=2000,nPermSimple = 10000,eps = 0)
+results=as.data.frame(fgseaRes)
+results=results[order(results$pval),]
+results$leadingEdge = vapply(results$leadingEdge, paste, collapse = ", ", character(1L))
+results$pathwayName = pathwaysDF[results$pathway,]$V2
+names(results)
+name_order = names(results)[c(1,(length(names(results))),2:(length(names(results))-1))]
+results = results[,name_order]
+write.csv(results,"fgsea_results_EGCs_autonomic_gs_seed10.csv",row.names=F)
+write.csv(results[results$NES >=0,],"fgsea_results_up_EGCs_seed10.csv",row.names=F)
+write.csv(results[results$NES <=0,],"fgsea_results_up_autonomic_seed10.csv",row.names=F)
+```
+
+```{r}
+set.seed(42)
+da_gsea = da_gsea[abs(da_gsea$Log2FC) >= 0.5,]
+da_gsea$Log2FC
+da_gsea = da_gsea[order(da_gsea$Log2FC, decreasing=T),]
+ranks=setNames(da_gsea$Log2FC,da_gsea$name)
+#fgseaRes = fgsea(pathways, ranks, minSize=15, maxSize=2000, nperm=10000)
+fgseaRes = fgsea(pathways, ranks, minSize=15, maxSize=2000,nPermSimple = 10000,eps = 0)
+results=as.data.frame(fgseaRes)
+results=results[order(results$pval),]
+results$leadingEdge = vapply(results$leadingEdge, paste, collapse = ", ", character(1L))
+results$pathwayName = pathwaysDF[results$pathway,]$V2
+names(results)
+name_order = names(results)[c(1,(length(names(results))),2:(length(names(results))-1))]
+results = results[,name_order]
+write.csv(results,"fgsea_results_EGCs_autonomic_gs_filtered.csv",row.names=F)
+write.csv(results[results$NES >=0,],"fgsea_results_up_EGCs_filtered.csv",row.names=F)
+write.csv(results[results$NES <=0,],"fgsea_results_up_autonomic_filtered.csv",row.names=F)
+```

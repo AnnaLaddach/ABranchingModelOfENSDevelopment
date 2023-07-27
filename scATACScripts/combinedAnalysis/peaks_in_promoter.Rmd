@@ -1,0 +1,212 @@
+---
+title: "Analyse peaks in promoter regions"
+output: html_notebook
+---
+
+```{r}
+library(ArchR)
+library(ggplot2)
+library(scales)
+```
+
+```{r}
+project = loadArchRProject(path = "./output")
+```
+
+```{r}
+length(unique(project@peakSet$nearestGene))
+```
+
+```{r}
+antler_obj= readRDS("/home/anna/Dropbox (The Francis Crick)/Documents/single_cell_analysis/in_vivo_SI_all/final_results_and_scripts/output/gene_modules/all_data/antler_obj.RDS")
+modules = antler_obj$topCorr_DR$genemodules
+```
+
+```{r}
+EGC_project = project[project$cell_type2== "EGC",]
+ANNC_project = project[project$cell_type2== "autonomic",]
+```
+
+```{r}
+EGC_project <- addGroupCoverages(ArchRProj = EGC_project, groupBy = "cell_type2", force = TRUE)
+ANNC_project <- addGroupCoverages(ArchRProj = ANNC_project, groupBy = "cell_type2", force = TRUE)
+pathToMacs2 <- findMacs2()
+```
+
+```{r}
+EGC_project <- addReproduciblePeakSet(
+    ArchRProj = EGC_project, 
+    groupBy = "cell_type2", 
+    pathToMacs2 = pathToMacs2,
+    cutOff = 0.05
+)
+ANNC_project <- addReproduciblePeakSet(
+    ArchRProj = ANNC_project, 
+    groupBy = "cell_type2", 
+    pathToMacs2 = pathToMacs2,
+    cutOff = 0.05
+)
+```
+
+```{r}
+get_results = function(module,dataset, cell_type){
+  peakset = getPeakSet(dataset)
+  mod = peakset[peakset$nearestGene %in% modules[[module]],]
+  mod_promoter = mod[mod$peakType == "Promoter",]
+  all_promoter =peakset[peakset$peakType == "Promoter",]
+  n_promoter = length(unique(all_promoter$nearestGene))
+  all_genes = getGenes(ArchRProj = project)
+  n_genes = length(unique(all_genes$symbol)) #24368
+  n_mod_promoter = length(unique(mod_promoter$nearestGene))
+  n_mod = length(modules[[module]][modules[[module]] %in% all_genes$symbol])
+  fraction_mod = n_mod_promoter/n_mod
+  fraction_overall = n_promoter/n_genes
+  n_mod = length(modules[[module]][modules[[module]] %in% all_genes$symbol])
+  pvalue = phyper(n_mod_promoter,n_promoter,n_genes - n_promoter, n_mod, lower.tail = FALSE)   
+  results = data.frame("module" = module, "cell_type" = cell_type, "fraction_mod" = fraction_mod, "fraction_overall" = fraction_overall, "pvalue" = pvalue)
+  print(results)
+  return(results)
+}
+```
+
+```{r}
+module_names = c(16,17,18,83,81,79,71,74,75,78)
+```
+
+```{r}
+results = data.frame("module" = character(), "cell_type" = character(),"fraction_mod" = numeric(), "fraction_overall" = numeric(), "pvalue" = numeric())
+
+for (module in module_names){
+  results = rbind(results,get_results(module,EGC_project, "EGC"))
+  results = rbind(results,get_results(module,ANCC_project, "ANCC"))
+}
+
+results$qvalue = p.adjust(results$pvalue, method = "fdr")
+write.csv(results, "./output/peaks_in_promoter_stats.csv", row.names = F)
+```
+
+```{r}
+results = read.csv("./output/peaks_modules_results/peaks_in_promoter_stats.csv")
+```
+
+```{r}
+results$module = factor(results$module, levels = module_names)
+```
+
+```{r}
+pdf("./output/fraction_module_peaks_in_promoter.pdf", width = 7, height = 3)
+p1 = ggplot(results, aes(fill=cell_type, y=fraction_mod, x=module)) + 
+    geom_bar(position="stack", stat="identity") + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme_classic() + xlab("Module") + ylab("Fraction") + theme(legend.title = element_blank()) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(angle = 90)) + theme(axis.title=element_text(size=15,family = "Helvetica", color = "black")) +  facet_wrap(~ cell_type)# +  scale_fill_manual(values = cols)
+
+print(p1)
+dev.off()
+```
+
+```{r}
+results$fc = results$fraction_mod/results$fraction_overall
+results$minlog10qvalue = -log10(results$qvalue)
+```
+
+```{r}
+pdf("./output/fc_module_peaks_in_promoter.pdf", width = 7, height = 3)
+p1 = ggplot(results, aes(fill=cell_type, y=fc, x=module)) + 
+    geom_bar(position="stack", stat="identity") + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme_classic() + xlab("Module") + ylab("fold_change") + theme(legend.title = element_blank()) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(angle = 90)) + theme(axis.title=element_text(size=15,family = "Helvetica", color = "black")) + scale_y_continuous(limits=c(1,2.2),oob = rescale_none) + facet_wrap(~ cell_type)# +  scale_fill_manual(values = cols)
+
+print(p1)
+dev.off()
+```
+```{r}
+pdf("./output/log10qval_module_peaks_in_promoter.pdf", width = 7, height = 3)
+p1 = ggplot(results, aes(fill=cell_type, y=minlog10qvalue, x=module)) + 
+    geom_bar(position="stack", stat="identity") + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme_classic() + xlab("Module") + ylab("-log10(qval)") + theme(legend.title = element_blank()) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(angle = 90)) + theme(axis.title=element_text(size=15,family = "Helvetica", color = "black")) +  facet_wrap(~ cell_type) + scale_fill_grey(start = 0, end = .7)
+
+print(p1)
+dev.off()
+```
+```{r}
+pdf("./output/log10qval_module_peaks_in_promoter_v2.pdf", width = 5, height = 2)
+p1 = ggplot(results, aes(fill=cell_type, y=minlog10qvalue, x=module)) + 
+    geom_bar(position="dodge", stat="identity") + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme_classic() + xlab("Module") + ylab("-log10(p-adj)") + theme(legend.title = element_blank()) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(angle = 90)) + theme(axis.title=element_text(size=15,family = "Helvetica", color = "black")) + scale_fill_grey(start = 0, end = .7) + geom_hline(yintercept = -log10(0.01),  linetype="dashed") 
+print(p1)
+dev.off()
+```
+
+```{r}
+get_fractions_ancc = function(module){
+  mod = ANCC_project@peakSet[ANCC_project@peakSet$nearestGene %in% modules[[module]],]
+  mod_promoter = mod[mod$peakType == "Promoter",]
+  all_promoter =ANCC_project@peakSet[ANCC_project@peakSet$peakType == "Promoter",]
+  n_promoter = length(unique(all_promoter$nearestGene))
+  all_genes = getGenes(ArchRProj = project)
+  n_genes = length(unique(all_genes$symbol)) #24368
+  n_mod_promoter = length(unique(mod_promoter$nearestGene))
+  
+  print(n_mod_promoter/length(modules[[module]][modules[[module]] %in% all_genes$symbol]))
+  
+  print(n_promoter/n_genes)
+  n_mod = length(modules[[module]][modules[[module]] %in% all_genes$symbol])
+  p = phyper(n_mod_promoter,n_promoter,n_genes - n_promoter, n_mod, lower.tail = FALSE)   
+  print(p)
+}
+```
+
+```{r}
+#ANCC_project = ANNC_project
+get_fractions_ancc(16)
+get_fractions_ancc(75)
+get_fractions_ancc(74)
+get_fractions_ancc(81)
+```
+
+```{r}
+mod_16 = project@peakSet[project@peakSet$nearestGene %in% modules[[16]],]
+mod_16 = mod_16[names(mod_16) == "EGC",]
+mod_16_promoter =mod_16[mod_16$peakType == "Promoter",]
+mod_16_promoter_genes = unique(mod_16_promoter$nearestGene)
+
+```
+
+```{r}
+palette = c("#bcbd22", '#e377c2','#7f7f7f', "black", "dark cyan")
+```
+
+
+```{r}
+p <- plotBrowserTrack(
+    ArchRProj = project, 
+    groupBy = "cell_type", 
+    geneSymbol = mod_16_promoter_genes, 
+    upstream = 10000,
+    downstream = 10000,
+    loops = NULL,
+    useGroups = c("autonomic","EGC1","EGC2","oligodendrocytes","astrocytes"),
+    pal = palette
+)
+
+plotPDF(plotList = p, 
+    name = paste0("EGC_mod16_promoter.pdf"), 
+    ArchRProj = project, 
+    addDOC = FALSE, width = 4, height = 3)
+```
+
+```{r}
+loci = as.data.frame(ranges(project@peakSet))
+
+project@peakSet$id = paste(seqnames(project@peakSet),loci$start,loci$end,sep = "_")
+
+peaks = project@peakSet
+
+annotate_peaks = function(da_peaks,peaks){
+  da_peaks$id = paste(da_peaks$seqnames, da_peaks$start,da_peaks$end,sep = "_")
+  selected_peaks = peaks[peaks$id %in% da_peaks$id,]
+  selected_peaks = as.data.frame(selected_peaks, row.names = "id")
+  selected_peaks_anno = merge(selected_peaks, da_peaks, by.x = 0, by.y = "id")
+  return(selected_peaks_anno)
+}
+```
+
+```{r}
+saveArchRProject(ArchRProj = EGC_project, outputDirectory = "./output_EGC", load = FALSE)
+saveArchRProject(ArchRProj = ANCC_project, outputDirectory = "./output_ANCC", load = FALSE)
+saveArchRProject(ArchRProj = project, outputDirectory = "./output", load = FALSE)
+```

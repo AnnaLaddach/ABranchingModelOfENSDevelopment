@@ -1,0 +1,110 @@
+---
+title: "Calculation of gene modules"
+output: html_notebook
+---
+
+Load libraries
+```{r}
+library(Antler)
+```
+
+
+Read in and write data in correct format for Antler package.
+```{r}
+#set output directory
+output_dir = "../../output/gene_modules/all_data"
+
+#read in single cell data
+counts = read.csv("../../output/adata.csv")
+pheno = read.csv("../../output/obs.csv")
+rownames(pheno) = pheno$X
+mat = as.matrix(counts[,2:ncol(counts)])
+colnames(mat) = names(counts)[2:ncol(counts)]
+rownames(mat) = counts$X
+
+#set time points (has to be numeric)
+timepoint = as.character(pheno$time_point)
+timepoint[which(timepoint == "E12")] = 1
+timepoint[which(timepoint == "E14")] = 2
+timepoint[which(timepoint == "E16")] = 3
+timepoint[which(timepoint == "P00")] = 4
+timepoint[which(timepoint == "P25")] = 5
+timepoint[which(timepoint == "P60")] = 6
+pheno$timepoint = timepoint
+
+#dummy repicate id and treatment information
+#has to be added even if not relevant
+pheno$replicate_id = 1
+pheno$treatment = 'none'
+pheno = as.matrix(pheno)
+rownames(pheno) = colnames(mat)
+colnames(pheno)[1] = "index"
+
+#change to output directory
+setwd(output_dir)
+
+#write data as required by Antler
+dir.create("data")
+write.table(pheno, "data/phenoData.csv", sep = '\t',quote = F)
+write.table(mat,"data/assayData.csv", sep = '\t')
+```
+
+Run Antler.
+```{r}
+#change to output directory
+setwd(output_dir)
+
+#create new Antler object
+m = Antler$new(plot_folder="plots")
+getwd()
+m$loadDataset(folderpath="data",data_status='Normalized')
+
+#read information on variable genes (calculated using Scanpy) and filter
+#out genes with low normalised dispersions.
+hvar = read.csv("../../var.csv")
+hvar$dispersions_norm = as.numeric(as.character(hvar$dispersions_norm))
+hvar = na.omit(hvar)
+dispersed_genes = hvar$X[hvar$dispersions_norm > 0]
+m$filterGenes(dispersed_genes)
+
+#identify gene modules
+m$identifyGeneModules(
+  method="TopCorr_DR",
+  corr_t = 0.3, # the Spearman correlation threshold
+  topcorr_corr_min = 3, # minimum number of genes a gene should be correlated with
+  topcorr_mod_min_cell = 3, # minimum number of cells with "positive" binarized level per gene module
+  topcorr_mod_consistency_thres = 0.3, # ratio of expressed genes among "positive" cells per gene module
+  data_status='Normalized',
+  debug_plot_basename='debug'
+)
+
+#write gene modules
+m$writeGeneModules(basename="UnbiasedGMs", gms='topCorr_DR.genemodules')
+
+#clustering purely for plot layout
+m$identifyCellClusters(method='hclust', used_genes="topCorr_DR.genemodules", data_status='Normalized')
+
+#choose genes to display in plot labels (all genes in heatmap regardless)
+displayed_genes = getGenesFromGOterms(c('GO:0007399', 'GO:0030154', 'GO:0016477'))
+
+#plot gene modules
+m$plotGeneModules(basename='UnbiasedGMs',
+                  displayed.gms = c('topCorr_DR.genemodules'),
+                  displayed.geneset=displayed_genes,
+                  use.dendrogram='hclust',
+                  display.clusters='hclust',
+                  display.legend=F,
+                  file_settings=list(list(type='pdf', width=25, height=35)),
+                  data_status=c('Normalized'),
+                  gene_transformations='logscaled',
+                  pretty.params=list("size_factor"=4, "ngenes_per_lines" = 15, "side.height.fraction"=.05),
+)
+
+#extract all genes which take part in gene modules
+genes = unlist(m$topCorr_DR$genemodules)
+write.csv(genes, "gene_module_genes.csv")
+
+#save antler object
+saveRDS(m, "antler_obj.RDS")
+```
+

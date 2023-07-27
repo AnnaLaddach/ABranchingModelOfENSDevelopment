@@ -1,0 +1,328 @@
+---
+title: "Analysis of EGC, ANCC, astrocyte and oligodendrocyte data"
+output: html_notebook
+---
+
+```{r}
+library(ArchR)
+addArchRThreads(threads = 6) 
+addArchRGenome("mm10")
+```
+
+```{r}
+ArrowFiles = c("EGC.arrow","NC.arrow","cortex.arrow")
+```
+
+```{r}
+dir.create("output")
+```
+
+```{r}
+doubScores <- addDoubletScores(
+    input = ArrowFiles,
+    k = 10, #Refers to how many cells near a "pseudo-doublet" to count.
+    knnMethod = "UMAP", #Refers to the embedding to use for nearest neighbor search with doublet projection.
+    LSIMethod = 1,
+    outDir = "./output"
+)
+```
+
+```{r}
+project <- ArchRProject(
+  ArrowFiles = ArrowFiles, 
+  outputDirectory = "./output",
+  copyArrows = TRUE #This is recommended so that if you modify the Arrow files you have an original copy for later usage.
+)
+```
+
+```{r}
+EGC1 = read.csv("EGC1.csv")
+EGC2 = read.csv("EGC2.csv")
+astrocytes = read.csv("astrocytes2.csv")
+oligodendrocytes = read.csv("oligodendrocytes2.csv")
+autonomic = read.csv("autonomic.csv")
+```
+
+```{r}
+project$cell_type = ""
+project$cell_type[project$cellNames %in% EGC1$x] = "EGC1"
+project$cell_type[project$cellNames %in% EGC2$x] = "EGC2"
+project$cell_type[project$cellNames %in% astrocytes$x] = "astrocytes"
+project$cell_type[project$cellNames %in% oligodendrocytes$x] = "oligodendrocytes"
+project$cell_type[project$cellNames %in% autonomic$x] = "autonomic"
+```
+
+```{r}
+unique(project$cell_type)
+
+project = project[!(project$cell_type == ""),]
+```
+
+```{r}
+project <- addIterativeLSI(
+    ArchRProj = project,
+    useMatrix = "TileMatrix", 
+    name = "IterativeLSI", 
+    iterations = 2, 
+    varFeatures = 25000, 
+    dimsToUse = 1:30
+)
+```
+
+```{r}
+project <- addUMAP(ArchRProj = project, reducedDims = "IterativeLSI")
+
+p1 <- plotEmbedding(ArchRProj = project, colorBy = "cellColData", name = "Sample", embedding = "UMAP",) 
+
+p1
+```
+
+```{r}
+project <- addHarmony(
+    ArchRProj =project,
+    reducedDims = "IterativeLSI",
+    name = "Harmony",
+    groupBy = "Sample"
+)
+```
+
+```{r}
+project = addUMAP(ArchRProj = project, name = "UMAP_harmony", reducedDims = "Harmony")
+
+p1 <- plotEmbedding(ArchRProj = project, colorBy = "cellColData", name = "Sample", embedding = "UMAP_harmony",) 
+
+p1
+```
+
+```{r}
+project <- addClusters(
+    input = project,
+    reducedDims = "Harmony",
+    method = "Seurat",
+    name = "Clusters_harmony",
+    resolution = 1
+)
+```
+
+```{r}
+p <- plotEmbedding(ArchRProj = project, embedding = "UMAP_harmony", colorBy = "cellColData", name = "Clusters_harmony") 
+
+plotPDF(p,name = "UMAP_cluster_harmony.pdf", ArchRProj = project)
+```
+
+```{r}
+p <- plotEmbedding(ArchRProj = project, embedding = "UMAP_harmony", colorBy = "cellColData", name = "cell_type") 
+
+plotPDF(p,name = "UMAP_cell_type.pdf", ArchRProj = project)
+```
+
+```{r}
+p <- plotEmbedding(ArchRProj = project, colorBy = "cellColData", name = "TSSEnrichment", embedding = "UMAP_harmony",) 
+
+plotPDF(p,name = "UMAP_TSSEnrichment.pdf", ArchRProj = project)
+```
+
+```{r}
+antler_obj= readRDS("/home/anna/Dropbox (The Francis Crick)/Documents/single_cell_analysis/in_vivo_SI_all/final_results_and_scripts/output/gene_modules/all_data/antler_obj.RDS")
+modules = antler_obj$topCorr_DR$genemodules
+
+selected_genes = modules[[16]]
+```
+
+```{r}
+p <- plotEmbedding(
+    ArchRProj = project, 
+    colorBy = "GeneScoreMatrix", 
+    name = selected_genes, 
+    embedding = "UMAP_harmony",
+    quantCut = c(0.01, 0.95),
+    imputeWeights = NULL
+)
+
+plotPDF(p,name = "UMAP_module_16.pdf", ArchRProj = project)
+```
+```{r}
+project$cell_type2 = project$cell_type
+project$cell_type2[project$cell_type %in% c("EGC1","EGC2")] = "EGC"
+```
+
+```{r}
+de = list()
+celltypes = unique(project$cell_type2)
+
+num_celltypes = length(celltypes)
+for (i in 1:(num_celltypes-1)){
+  for (j in i:num_celltypes){
+    de[[paste(celltypes[i],celltypes[j], sep = '_')]] = getMarkerFeatures(
+      ArchRProj = project,  
+      useMatrix = "GeneScoreMatrix",
+      groupBy = "cell_type2",
+      testMethod = "wilcoxon",
+      bias = c("TSSEnrichment", "log10(nFrags)"),
+      useGroups = celltypes[i],
+      bgdGroups = celltypes[j]
+    )
+  }
+}
+```
+
+```{r}
+saveRDS(de, "pairwiseGSDA.rds")
+```
+
+```{r}
+library(EnhancedVolcano)
+```
+
+```{r}
+plot_volcano = function(da, module, comparison){
+
+  da = da[da$name %in% modules[[module]],]
+  
+  
+  pdf(paste0("volcano_ATAC_mod",module,"_", comparison,"_glia_v_autonomic_gs.pdf"),width = 10, height = 10)
+  p = EnhancedVolcano(da,
+                  x = 'Log2FC', y = 'FDR',
+                  lab = da$name,
+                  xlab = 'log2FC',
+                  ylab = bquote(~-Log[10]~adjusted~italic(P)),
+                  #xlim = c(-10,10),
+                  boxedLabels = T,
+                  drawConnectors = T,
+                  pCutoff = 0.01,
+                  FCcutoff = 1,
+                  #transcriptLabSize = 2
+                  
+  )  
+  print(p)
+  dev.off()
+}
+```
+
+```{r}
+for (module in c(16,83,81,79,71,74,75)){
+     plot_volcano(getMarkers(de$EGC_autonomic, cutOff = "abs(Log2FC) >= 0")$EGC,module,"EGC_autonomic")
+}
+```
+
+```{r}
+markers = getMarkers(de$EGC_autonomic, cutOff = "abs(Log2FC) >= 0")$EGC
+```
+
+
+```{r}
+markersGS <- getMarkerFeatures(
+    ArchRProj = project, 
+    useMatrix = "GeneScoreMatrix", 
+    groupBy = "Clusters_harmony",
+    bias = c("TSSEnrichment", "log10(nFrags)"),
+    testMethod = "wilcoxon"
+)
+```
+
+```{r}
+markerList <- getMarkers(markersGS, cutOff = "FDR <= 0.01 & Log2FC >= 1.25")
+
+genes_label = c()
+for (i in 1:11){
+  genes_label = c(genes_label,markerList[[paste0("C",i)]]$name)
+  print(i)
+  print(markerList[[paste0("C",i)]]$name)
+}
+unique(genes_label)
+genes_label = genes_label[!(is.na(genes_label))]
+```
+
+```{r}
+markerList <- getMarkers(markersGS, cutOff = "FDR <= 1 & Log2FC >= 1")
+markerList[["C2"]]$name
+```
+```{r}
+p <- plotEmbedding(
+    ArchRProj = project, 
+    colorBy = "GeneScoreMatrix", 
+    name = c("Sfrp5","Dkk3","Gfap","Sfrp1","Socs3","Scn7a","Rarres2","S100b"), 
+    embedding = "UMAP_harmony",
+    quantCut = c(0.01, 0.95),
+    imputeWeights = NULL
+)
+
+plotPDF(p,name = "UMAP_glial_markers.pdf", ArchRProj = project)
+```
+
+```{r}
+p <- plotEmbedding(
+    ArchRProj = project, 
+    colorBy = "GeneScoreMatrix", 
+    name =markerList[["C2"]]$name[1:20], 
+    embedding = "UMAP_harmony",
+    quantCut = c(0.01, 0.95),
+    imputeWeights = NULL
+)
+
+plotPDF(p,name = "UMAP_C2_markers.pdf", ArchRProj = project)
+```
+```{r}
+p <- plotEmbedding(
+    ArchRProj = project, 
+    colorBy = "GeneScoreMatrix", 
+    name =markerList[["C3"]]$name[1:20], 
+    embedding = "UMAP_harmony",
+    quantCut = c(0.01, 0.95),
+    imputeWeights = NULL
+)
+
+plotPDF(p,name = "UMAP_C3_markers.pdf", ArchRProj = project)
+```
+```{r}
+table(project$Clusters_harmony)
+
+```
+C2 12 cells
+C3 16 cells
+
+
+```{r}
+project = project[!(project$Clusters_harmony %in% c("C2","C3")),]
+```
+
+```{r}
+project <- addIterativeLSI(
+    ArchRProj = project,
+    useMatrix = "TileMatrix", 
+    name = "IterativeLSI2", 
+    iterations = 2, 
+    varFeatures = 25000, 
+    dimsToUse = 1:30
+)
+```
+
+```{r}
+project <- addUMAP(ArchRProj = project, reducedDims = "IterativeLSI2", name = "UMAP2")
+
+p1 <- plotEmbedding(ArchRProj = project, colorBy = "cellColData", name = "Sample", embedding = "UMAP2",) 
+
+p1
+```
+
+```{r}
+project <- addHarmony(
+    ArchRProj =project,
+    reducedDims = "IterativeLSI2",
+    name = "Harmony2",
+    groupBy = "Sample"
+)
+```
+
+```{r}
+project = addUMAP(ArchRProj = project, name = "UMAP_harmony2", reducedDims = "Harmony2")
+
+p1 <- plotEmbedding(ArchRProj = project, colorBy = "cellColData", name = "Sample", embedding = "UMAP_harmony2",) 
+
+p1
+```
+```{r}
+saveArchRProject(ArchRProj = project, outputDirectory = "./output", load = FALSE)
+```
+
+

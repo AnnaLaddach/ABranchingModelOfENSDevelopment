@@ -1,0 +1,97 @@
+---
+title: "Plot heatmap with time dependent gene modules"
+output: html_notebook
+---
+
+```{r}
+#load libraries
+library(gplots)
+library(RColorBrewer)
+```
+
+
+```{r}
+#read in data
+counts = read.csv("../../output/adata_anno.csv")
+pheno = read.csv("../../output/obs_anno.csv")
+rownames(pheno) = pheno$index
+mat = as.matrix(counts[,2:ncol(counts)])
+colnames(mat) = names(counts)[2:ncol(counts)]
+rownames(mat) = counts$index
+```
+
+
+
+
+```{r}
+#read in gene modules
+m = readRDS("../../output/gene_modules/all_data/antler_obj.RDS")
+
+
+
+markers = c(m$topCorr_DR$genemodules[[16]],m$topCorr_DR$genemodules[[17]],m$topCorr_DR$genemodules[[18]],m$topCorr_DR$genemodules[[83]],m$topCorr_DR$genemodules[[81]],m$topCorr_DR$genemodules[[79]],m$topCorr_DR$genemodules[[71]],m$topCorr_DR$genemodules[[74]],m$topCorr_DR$genemodules[[75]],m$topCorr_DR$genemodules[[78]])
+colour_code = c(rep(1, length(m$topCorr_DR$genemodules[[16]])),rep(2, length(m$topCorr_DR$genemodules[[17]])),rep(3, length(m$topCorr_DR$genemodules[[18]])) ,rep(4, length(m$topCorr_DR$genemodules[[83]])), rep(5, length(m$topCorr_DR$genemodules[[81]])) ,rep(6, length(m$topCorr_DR$genemodules[[79]])), rep(7, length(m$topCorr_DR$genemodules[[71]])) ,rep(8, length(m$topCorr_DR$genemodules[[74]])) , rep(9, length(m$topCorr_DR$genemodules[[75]])),rep(10, length(m$topCorr_DR$genemodules[[78]])))
+
+
+clusters= c("Early","Early_neurons","Late_1.1","Late_1.2","Late_2.1","Late_2.2","Late_2.3","Late_2.4",
+                                "Late_2.5","Late_2.6","Late_neurons","Adult_neurons","Glia_1","Glia_2")
+selected_clusters =  c("Early","Late_1.1","Late_1.2","Late_2.1","Late_2.2","Late_2.3","Late_2.4",
+                                "Late_2.5","Late_2.6","Glia_1","Glia_2")
+
+#subset matrix for markers
+mat_selected = mat[markers,pheno$louvain_r1.5 %in% selected_clusters]
+
+#center gene expression values
+#mat_norm = mat_selected - rowMeans(mat_selected)
+mat_norm = t(scale(t(mat_selected)))
+
+
+mat_norm[mat_norm > 3] = 3
+mat_norm[mat_norm < -3] = -3
+#set colours for clusters
+colour_palette = c('#1f77b4',
+ '#2ca02c','#2ca02c',
+ '#d62728','#d62728','#d62728','#d62728','#d62728','#d62728',
+ '#e377c2',
+ '#7f7f7f')
+
+colour_palette_modules = brewer.pal(n = 10, name = "Set3")
+
+pheno = pheno[pheno$louvain_r1.5 %in% selected_clusters,]
+#order data by louvain clusters
+pheno$louvain_r1.5 = factor(pheno$louvain_r1.5, levels = selected_clusters)
+mat_norm = mat_norm[,order(pheno$louvain_r1.5)]
+
+#create heatmap
+extreme = 3
+breaks = seq(from=-extreme, to=max(extreme), length.out=100)
+
+pdf("../../output/gene_modules/all_data/heatmap_selected_modules_td_labels_v3.pdf", width = 20, height = 50)
+color.palette = colorRampPalette(c("blue", "white", "red"))
+heatmap.2(mat_norm,Colv = F,Rowv = F, symbreak=TRUE, trace='none', 
+          cexRow = 0.5, margins =c(12,9),col=color.palette, breaks = breaks,
+          ColSideColors=colour_palette[pheno$louvain_r1.5[order(pheno$louvain_r1.5)]], RowSideColors = colour_palette_modules[colour_code], labCol = F)
+dev.off()
+
+#create heatmap without labels
+pdf("../../output/gene_modules/all_data/heatmap_selected_modules_td_v3.pdf", width = 5, height = 5)
+color.palette = colorRampPalette(c("blue", "white", "red"))
+p = heatmap.2(mat_norm,Colv = F,Rowv = F, symbreak=TRUE, trace='none', 
+          cexRow = 1, margins =c(12,9),col=color.palette,breaks = breaks,
+          ColSideColors=colour_palette[pheno$louvain_r1.5[order(pheno$louvain_r1.5)]], RowSideColors = colour_palette_modules[colour_code], labCol = F, labRow = F)
+dev.off()
+
+png("../../output/gene_modules/all_data/heatmap_selected_modules_labels_td_v3.png", width = 20, height = 50, units = "in", res = 300)
+color.palette = colorRampPalette(c("blue", "white", "red"))
+heatmap.2(mat_norm,Colv = F,Rowv = F, symbreak=TRUE, trace='none', 
+          cexRow = 0.5, margins =c(12,9),col=color.palette, breaks = breaks,
+          ColSideColors=colour_palette[pheno$louvain_r1.5[order(pheno$louvain_r1.5)]], RowSideColors = colour_palette_modules[colour_code], labCol = F)
+dev.off()
+
+#create heatmap without labels
+png("../../output/gene_modules/all_data/heatmap_selected_modules_td_v3.png", width = 7, height = 7, units = "in", res = 300)
+color.palette = colorRampPalette(c("blue", "white", "red"))
+heatmap.2(mat_norm,Colv = F,Rowv = F, symbreak=TRUE, trace='none', cexRow = 1, margins =c(12,9),col=color.palette,breaks = breaks,
+          ColSideColors=colour_palette[pheno$louvain_r1.5[order(pheno$louvain_r1.5)]], RowSideColors = colour_palette_modules[colour_code], labCol = F, labRow = F)
+dev.off()
+```

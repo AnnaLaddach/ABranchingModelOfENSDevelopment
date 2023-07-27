@@ -1,0 +1,478 @@
+---
+title: "Create plots for TrajectoryGeometry analysis"
+output: html_notebook
+---
+
+```{r}
+devtools::load_all("/home/anna/Dropbox (The Francis Crick)/Documents/TrajectoryGeometry")
+library(TrajectoryGeometry)
+library(ggplot2)
+library(ggsignif)
+library(extrafont)
+library(plyr)
+font_import(paths = "/usr/share/fonts/truetype/myfonts/",prompt = F)
+```
+
+```{r}
+ensNeur = readRDS("ensNeuralResults.rds")
+ensGlial = readRDS("ensGlialResults.rds")
+results = data.frame(type = character(), value = numeric(), pc = numeric())
+for (i in c(3,15)){
+  values = visualiseTrajectoryStats(ensGlial[[i]], "distance", traj2Data = ensNeur[[i]])$values
+  values$pc = i
+  results = rbind(results, values)
+}
+```
+
+```{r}
+pvalues = c()
+for (i in 2:15){
+  pvalue = visualiseTrajectoryStats(ensGlial[[i]], "distance", traj2Data = ensNeur[[i]])$stats$p.value
+  pvalues= c(pvalues,pvalue)
+}
+
+qvalues = p.adjust(pvalues, method = "fdr")
+```
+
+```{r}
+stats = cbind(pvalues,qvalues)
+stats = as.data.frame(stats)
+stats$pcs = c(2:15)
+write.csv(stats, "neuronal_glial_comparison_pvalues.csv")
+```
+
+
+```{r}
+results$type = as.factor(results$type)
+
+results$type = revalue(results$type, c("Trajectory 1"="Glial", "Trajectory 2"="Neuronal"))
+
+results$pc = as.factor(results$pc)
+
+pdf("neural_glial_ens_comp.pdf", height = 3, width = 4)
+p = ggplot(results, aes(x=pc, y=value, fill = type)) + 
+    geom_violin(position=position_dodge(0.5)) + geom_boxplot(width=0.1,position=position_dodge(0.5)) + xlab('PCs') + 
+    ylab('mean distance') + scale_fill_manual(values=c( "#624185","#ff8a12")) + geom_signif(annotation= "***", xmin=1.87, xmax=2.13,  y_position=0.83) + geom_signif(annotation= "***", xmin=0.87, xmax=1.13,  y_position=0.81) + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank()) + ylab("Mean distance")+ ylim(0.15,0.9)
+
+print(p)
+dev.off()
+```
+
+```{r}
+write.csv(results, "/home/laddaca/Documents/SI_github/source_data/Fig1h_glial_neuronal.csv", row.names = F)
+```
+
+
+```{r}
+results = data.frame(type = character(), value = numeric(), pc = numeric())
+for (i in c(3,15)){
+  values = visualiseTrajectoryStats(ensGlial[[i]], "distance")$values
+  values$pc = i
+  results = rbind(results, values)
+}
+```
+
+```{r}
+pvalues = c()
+for (i in 2:15){
+  pvalue = visualiseTrajectoryStats(ensGlial[[i]], "distance")$stats$p.value
+  pvalues= c(pvalues,pvalue)
+}
+
+qvalues = p.adjust(pvalues, method = "fdr")
+```
+
+```{r}
+stats = cbind(pvalues,qvalues)
+stats = as.data.frame(stats)
+stats$pcs = c(2:15)
+write.csv(stats, "glial_random_comparison_pvalues.csv")
+```
+
+
+```{r}
+results$type = as.factor(results$type)
+
+results$pc = as.factor(results$pc)
+pdf("glial_random_ens_comp.pdf", height = 3, width = 4)
+p = ggplot(results, aes(x=pc, y=value, fill = type)) + 
+    geom_violin(position=position_dodge(0.5)) + geom_boxplot(width=0.1,position=position_dodge(0.5)) + xlab('PCs') + 
+    ylab('mean distance') + scale_fill_manual(values=c( "#624185","white")) + geom_signif(annotation= "***", xmin=1.87, xmax=2.13,  y_position=1.28) + geom_signif(annotation= "***", xmin=0.87, xmax=1.13,  y_position=1.5) + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank()) + ylab("Mean distance") + ylim(c(0.15,1.6))
+
+print(p)
+dev.off()
+```
+
+
+```{r}
+write.csv(results, "/home/laddaca/Documents/SI_github/source_data/Fig1h_glial_random.csv", row.names = F)
+```
+
+
+```{r}
+results = data.frame(type = character(), value = numeric(), pc = numeric())
+for (i in c(3,15)){
+  values = visualiseTrajectoryStats(ensNeur[[i]], "distance")$values
+  values$pc = i
+  results = rbind(results, values)
+}
+```
+
+
+```{r}
+write.csv(results, "/home/laddaca/Documents/SI_github/source_data/Fig1h_glial_random.csv", row.names = F)
+```
+
+
+```{r}
+pvalues = c()
+for (i in 2:15){
+  pvalue = visualiseTrajectoryStats(ensNeur[[i]], "distance")$stats$p.value
+  pvalues= c(pvalues,pvalue)
+}
+
+qvalues = p.adjust(pvalues, method = "fdr")
+```
+
+```{r}
+stats = cbind(pvalues,qvalues)
+stats = as.data.frame(stats)
+stats$pcs = c(2:15)
+write.csv(stats, "neuronal_random_comparison_pvalues.csv")
+```
+
+
+```{r}
+results$type = as.factor(results$type)
+
+results$pc = as.factor(results$pc)
+pdf("neural_random_ens_comp.pdf", height = 3, width = 4)
+p = ggplot(results, aes(x=pc, y=value, fill = type)) + 
+    geom_violin(position=position_dodge(0.5)) + geom_boxplot(width=0.1,position=position_dodge(0.5)) + xlab('PCs') + 
+    ylab('mean distance') + scale_fill_manual(values=c( "#ff8a12","white")) + geom_signif(annotation= "***", xmin=1.87, xmax=2.13,  y_position=1.28) + geom_signif(annotation= "***", xmin=0.87, xmax=1.13,  y_position=1.5) + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank()) + ylab("Mean distance") + ylim(c(0.15,1.6))
+
+print(p)
+dev.off()
+```
+
+
+```{r}
+branchPointResults = readRDS("./ensBranchPoint/neuralBranchPointResults_3.rds")
+```
+
+
+```{r}
+branchPointValues = data.frame(type = character(), value = numeric(), trajectoryStart = numeric())
+for (name in names(branchPointResults)){
+  values = visualiseTrajectoryStats(branchPointResults[[name]], "distance")$values
+  values$trajectoryStart = as.numeric(name)
+  branchPointValues = rbind(branchPointValues, values)
+}
+```
+
+
+```{r}
+branchPointValues$type = as.factor(branchPointValues$type)
+
+branchPointValues$trajectoryStart = as.factor(branchPointValues$trajectoryStart)
+pdf("ENS_neural_bp_3.pdf", height = 3, width = 5)
+p = ggplot(branchPointValues[branchPointValues$type != "Random",], aes(x=trajectoryStart, y=value)) + 
+    geom_violin(fill = "#ff8a12") + geom_boxplot(width=0.1,fill = "#ff8a12") + xlab('Trajectory start') + ylab('Mean distance') + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(plot.ti = element_text(family = "Helvetica", color = "black",size = 15))
+
+print(p)
+dev.off()
+```
+
+```{r}
+write.csv(branchPointValues, "/home/laddaca/Documents/SI_github/source_data/Fig1i.csv", row.names = F)
+```
+
+```{r}
+
+pValues = data.frame(value = numeric(), trajectoryStart = numeric())
+for (name in names(branchPointResults)){
+  pvalue = visualiseTrajectoryStats(branchPointResults[[name]], "distance")$stats$p.value
+  pValues = rbind(pValues, data.frame(value = pvalue, trajectoryStart = name))
+}
+```
+
+```{r}
+pValues$logpvalue = -log10(pValues$value)
+```
+
+
+```{r}
+pdf("ENS_neural_bp_log_p_3.pdf", height = 3, width = 5)
+p = ggplot(pValues, aes(x=trajectoryStart, y=logpvalue,group=1)) + geom_line(color= "#ff8a12", size = 1.5)  + geom_point(color= "#ff8a12", size = 3) + xlab('Trajectory start') + ylab('-log10(p-value)') + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15))
+
+print(p)
+dev.off()
+```
+
+```{r}
+names(pValues)[1] = "pvalue"
+write.csv(pValues, "/home/laddaca/Documents/SI_github/source_data/Fig1j.csv", row.names = F)
+```
+
+
+```{r}
+for (i in 2:15){
+  branchPointResults = readRDS(paste0("../ensBranchPoint/neuralBranchPointResults_",i,".rds"))
+
+  branchPointValues = data.frame(type = character(), value = numeric(), trajectoryStart = numeric())
+  for (name in names(branchPointResults)){
+    values = visualiseTrajectoryStats(branchPointResults[[name]], "distance")$values
+    values$trajectoryStart = as.numeric(name)
+    branchPointValues = rbind(branchPointValues, values)
+  }
+
+  branchPointValues$type = as.factor(branchPointValues$type)
+  
+  branchPointValues$trajectoryStart = as.factor(branchPointValues$trajectoryStart)
+  pdf(paste0("ENS_neural_bp_",i,".pdf"), height = 3, width = 5)
+  p = ggplot(branchPointValues[branchPointValues$type != "Random",], aes(x=trajectoryStart, y=value)) + geom_violin(fill = "#ff8a12") + geom_boxplot(width=0.1,fill = "#ff8a12") + xlab('Trajectory start') + ylab('Mean distance') + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + ggtitle(paste0(i," PCs")) + theme(plot.title = element_text(family = "Helvetica", color = "black",size = 15))
+  
+  print(p)
+  dev.off()
+
+  pValues = data.frame(value = numeric(), trajectoryStart = numeric())
+  for (name in names(branchPointResults)){
+    pvalue = visualiseTrajectoryStats(branchPointResults[[name]], "distance")$stats$p.value
+    pValues = rbind(pValues, data.frame(value = pvalue, trajectoryStart = name))
+  }
+
+  pValues$logpvalue = -log10(pValues$value)
+
+  pdf(paste0("ENS_neural_bp_log_p_",i,".pdf"), height = 3, width = 5)
+  p = ggplot(pValues, aes(x=trajectoryStart, y=logpvalue,group=1)) + geom_line(color= "#ff8a12", size = 1.5)  + geom_point(color= "#ff8a12", size = 3) + xlab('Trajectory start') + ylab('-log10(p-value)') + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + ggtitle(paste0(i," PCs")) + theme(plot.title = element_text(family = "Helvetica", color = "black",size = 15))
+  print(p)
+  dev.off()
+}
+```
+
+
+```{r}
+for (i in 2:15){
+  branchPointResults = readRDS(paste0("./ensBranchPoint/neuralBranchPointResults_",i,".rds"))
+  
+  branchPointValues = data.frame(type = character(), value = numeric(), trajectoryStart = numeric())
+  for (name in names(branchPointResults)){
+    values = visualiseTrajectoryStats(branchPointResults[[name]], "distance")$values
+    values$trajectoryStart = as.numeric(name)
+    branchPointValues = rbind(branchPointValues, values)
+  }
+
+  branchPointValues$type = as.factor(branchPointValues$type)
+  
+  branchPointValues$trajectoryStart = as.factor(branchPointValues$trajectoryStart)
+
+  write.csv(branchPointValues, paste0("/home/laddaca/Documents/SI_github/source_data/FigS2d_msd_neuronal_", i, "_pcs.csv"), row.names = F)
+  
+  pValues = data.frame(value = numeric(), trajectoryStart = numeric())
+  for (name in names(branchPointResults)){
+    pvalue = visualiseTrajectoryStats(branchPointResults[[name]], "distance")$stats$p.value
+    pValues = rbind(pValues, data.frame(value = pvalue, trajectoryStart = name))
+  }
+
+  pValues$logpvalue = -log10(pValues$value)
+  names(pValues)[1] = "pvalue"
+  write.csv(pValues,  paste0("/home/laddaca/Documents/SI_github/source_data/FigS2d_pvalue_neuronal_", i, "_pcs.csv"), row.names = F)
+  
+}
+```
+
+
+```{r}
+for (i in 2:15){
+  branchPointResults = readRDS(paste0("../ensBranchPoint/glialBranchPointResults_",i,".rds"))
+
+  branchPointValues = data.frame(type = character(), value = numeric(), trajectoryStart = numeric())
+  for (name in names(branchPointResults)){
+    values = visualiseTrajectoryStats(branchPointResults[[name]], "distance")$values
+    values$trajectoryStart = as.numeric(name)
+    branchPointValues = rbind(branchPointValues, values)
+  }
+
+  branchPointValues$type = as.factor(branchPointValues$type)
+  
+  branchPointValues$trajectoryStart = as.factor(branchPointValues$trajectoryStart)
+  pdf(paste0("ENS_glial_bp_",i,".pdf"), height = 3, width = 5)
+  p = ggplot(branchPointValues[branchPointValues$type != "Random",], aes(x=trajectoryStart, y=value)) + 
+      geom_violin(fill = "#624185") + geom_boxplot(width=0.1,fill = "#624185") + xlab('Trajectory start') + ylab('Mean distance') + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + ggtitle(paste0(i," PCs")) + theme(plot.title = element_text(family = "Helvetica", color = "black",size = 15))
+  
+  print(p)
+  dev.off()
+
+  pValues = data.frame(value = numeric(), trajectoryStart = numeric())
+  for (name in names(branchPointResults)){
+    pvalue = visualiseTrajectoryStats(branchPointResults[[name]], "distance")$stats$p.value
+    pValues = rbind(pValues, data.frame(value = pvalue, trajectoryStart = name))
+  }
+
+  pValues$logpvalue = -log10(pValues$value)
+
+  pdf(paste0("ENS_glial_bp_log_p_",i,".pdf"), height = 3, width = 5)
+  p = ggplot(pValues, aes(x=trajectoryStart, y=logpvalue,group=1)) + geom_line(color= "#624185", size = 1.5)  + geom_point(color= "#624185", size = 3) + xlab('Trajectory start') + ylab('-log10(p-value)') + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + ggtitle(paste0(i," PCs")) + theme(plot.title = element_text(family = "Helvetica", color = "black",size = 15)) 
+  print(p)
+  dev.off()
+}
+```
+
+
+```{r}
+for (i in 2:15){
+  branchPointResults = readRDS(paste0("./ensBranchPoint/glialBranchPointResults_",i,".rds"))
+  
+  branchPointValues = data.frame(type = character(), value = numeric(), trajectoryStart = numeric())
+  for (name in names(branchPointResults)){
+    values = visualiseTrajectoryStats(branchPointResults[[name]], "distance")$values
+    values$trajectoryStart = as.numeric(name)
+    branchPointValues = rbind(branchPointValues, values)
+  }
+
+  branchPointValues$type = as.factor(branchPointValues$type)
+  
+  branchPointValues$trajectoryStart = as.factor(branchPointValues$trajectoryStart)
+
+  write.csv(branchPointValues, paste0("/home/laddaca/Documents/SI_github/source_data/FigS2d_msd_glial_", i, "_pcs.csv"), row.names = F)
+  
+  pValues = data.frame(value = numeric(), trajectoryStart = numeric())
+  for (name in names(branchPointResults)){
+    pvalue = visualiseTrajectoryStats(branchPointResults[[name]], "distance")$stats$p.value
+    pValues = rbind(pValues, data.frame(value = pvalue, trajectoryStart = name))
+  }
+
+  pValues$logpvalue = -log10(pValues$value)
+  names(pValues)[1] = "pvalue"
+  write.csv(pValues,  paste0("/home/laddaca/Documents/SI_github/source_data/FigS2d_pvalue_glial_", i, "_pcs.csv"), row.names = F)
+  
+}
+```
+
+
+
+All PCs for supplementary.
+```{r}
+ensNeur = readRDS("ensNeuralResults.rds")
+ensGlial = readRDS("ensGlialResults.rds")
+results = data.frame(type = character(), value = numeric(), pc = numeric())
+for (i in 2:15){
+  values = visualiseTrajectoryStats(ensGlial[[i]], "distance", traj2Data = ensNeur[[i]])$values
+  values$pc = i
+  results = rbind(results, values)
+}
+
+pvalues = c()
+for (i in 2:15){
+  pvalue = visualiseTrajectoryStats(ensGlial[[i]], "distance", traj2Data = ensNeur[[i]])$stats$p.value
+  pvalues= c(pvalues,pvalue)
+}
+
+qvalues = p.adjust(pvalues, method = "fdr")
+
+alpha = qvalues
+alpha[qvalues < 0.01] = 1
+alpha[qvalues > 0.01] = 0
+```
+
+
+```{r}
+results$type = as.factor(results$type)
+results$type = revalue(results$type, c("Trajectory 1"="Glial", "Trajectory 2"="Neural"))
+
+
+results$pc = as.factor(results$pc)
+pdf("neural_glial_ens_comp_all.pdf", height = 3, width = 8)
+p = ggplot(results, aes(x=pc, y=value, fill = type)) + 
+    geom_violin(position=position_dodge(0.5)) + geom_boxplot(width=0.1,position=position_dodge(0.5)) + xlab('PCs') + 
+    ylab('mean distance') + scale_fill_manual(values=c( "#624185","#ff8a12")) + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank()) + ylab("Mean distance") 
+
+print(p)
+dev.off()
+```
+
+```{r}
+write.csv(results, "/home/laddaca/Documents/SI_github/source_data/FigS2b_glial_neuronal.csv", row.names = F)
+```
+
+
+```{r}
+results = data.frame(type = character(), value = numeric(), pc = numeric())
+for (i in 2:15){
+  values = visualiseTrajectoryStats(ensGlial[[i]], "distance")$values
+  values$pc = i
+  results = rbind(results, values)
+}
+
+pvalues = c()
+for (i in 2:15){
+  pvalue = visualiseTrajectoryStats(ensGlial[[i]], "distance")$stats$p.value
+  pvalues= c(pvalues,pvalue)
+}
+
+qvalues = p.adjust(pvalues, method = "fdr")
+
+alpha = qvalues
+alpha[qvalues < 0.01] = 1
+alpha[qvalues > 0.01] = 0
+
+results$type = as.factor(results$type)
+
+library(plyr)
+results$pc = as.factor(results$pc)
+pdf("glial_random_ens_comp_all.pdf", height = 3, width = 8)
+p = ggplot(results, aes(x=pc, y=value, fill = type)) + 
+    geom_violin(position=position_dodge(0.5)) + geom_boxplot(width=0.1,position=position_dodge(0.5)) + xlab('PCs') + 
+    ylab('mean distance') + scale_fill_manual(values=c( "#624185","white")) + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank()) + ylab("Mean distance") + ylim(c(0.2,1.5))
+
+print(p)
+dev.off()
+```
+
+```{r}
+write.csv(results, "/home/laddaca/Documents/SI_github/source_data/FigS2b_glial_random.csv", row.names = F)
+```
+
+
+```{r}
+results = data.frame(type = character(), value = numeric(), pc = numeric())
+for (i in 2:15){
+  values = visualiseTrajectoryStats(ensNeur[[i]], "distance")$values
+  values$pc = i
+  results = rbind(results, values)
+}
+
+pvalues = c()
+for (i in 2:15){
+  pvalue = visualiseTrajectoryStats(ensNeur[[i]], "distance")$stats$p.value
+  pvalues= c(pvalues,pvalue)
+}
+
+qvalues = p.adjust(pvalues, method = "fdr")
+
+
+alpha = qvalues
+alpha[qvalues < 0.01] = 1
+alpha[qvalues > 0.01] = 0
+
+
+results$type = as.factor(results$type)
+
+library(plyr)
+#results$type = revalue(results$type, c("Trajectory 1"="Glial", "Trajectory 2"="Neural"))
+
+
+results$pc = as.factor(results$pc)
+pdf("neural_random_ens_comp_all.pdf", height = 3, width = 8)
+p = ggplot(results, aes(x=pc, y=value, fill = type)) + 
+    geom_violin(position=position_dodge(0.5)) + geom_boxplot(width=0.1,position=position_dodge(0.5)) + xlab('PCs') + 
+    ylab('mean distance') + scale_fill_manual(values=c( "#ff8a12","white")) + theme_classic() + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.title = element_blank()) + ylab("Mean distance") + ylim(c(0.2,1.5))
+
+print(p)
+dev.off()
+```
+
+```{r}
+write.csv(results, "/home/laddaca/Documents/SI_github/source_data/FigS2b_neuronal_random.csv", row.names = F)
+```
+

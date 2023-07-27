@@ -1,0 +1,96 @@
+---
+title: "Plot proportions of neurogenic/progenitor cells"
+output: html_notebook
+---
+
+```{r}
+library(ggplot2)
+source("opt_clust.R")
+```
+
+
+```{r}
+#read in data
+counts = read.csv("../../output/adata_anno.csv")
+pheno = read.csv("../../output/obs_anno.csv")
+rownames(pheno) = pheno$index
+mat = as.matrix(counts[,2:ncol(counts)])
+colnames(mat) = names(counts)[2:ncol(counts)]
+rownames(mat) = counts$index
+```
+
+```{r}
+time_points = c("E12","E14","E16","P00")
+
+markers = c("Tubb3","Elavl4","Ret","Phox2b","Erbb3","Sox10","Fabp7","Plp1")
+mat_selected = mat[,pheno$time_point %in% time_points]
+mat_selected = mat_selected[markers,]
+
+library("NbClust")
+opt_clust<-opt.clust(t(mat_selected),2,8,"../../output/opt_clust_kmeans_2clusters.pdf")
+neuronal_markers = c("Tubb3","Elavl4","Ret","Phox2b")
+glial_markers = c("Erbb3","Sox10","Fabp7","Plp1")
+set.seed(42)
+res = kmeans(t(mat_selected),2)
+
+sum(rowMeans(mat_selected[neuronal_markers,res$cluster == 1]))
+sum(rowMeans(mat_selected[neuronal_markers,res$cluster == 2]))
+
+
+sum(rowMeans(mat_selected[glial_markers,res$cluster == 1]))
+sum(rowMeans(mat_selected[glial_markers,res$cluster == 2]))
+
+
+pheno_selected = pheno[pheno$time_point %in% time_points,]
+
+results = data.frame(time_point = character(),cell_type = character(),number = numeric(), proportion = numeric(), time_chase = character())
+
+for (time_point in time_points){
+  neurogenic = dim(pheno_selected[pheno_selected$time_point == time_point & res$cluster == 2,])[1]
+  progenitor = dim(pheno_selected[pheno_selected$time_point == time_point & res$cluster == 1,])[1]
+  total = neurogenic + progenitor
+  time_chase = "24h"
+  if (time_point == "E14"){
+    time_chase = "72h"
+  }
+  results = rbind(results, data.frame(time_point = time_point,cell_type = "Neural character",number = neurogenic, proportion = neurogenic/total, time_chase = time_chase))
+  results = rbind(results, data.frame(time_point = time_point,cell_type = "Progenitor/glial character",number = progenitor, proportion = progenitor/total,time_chase = time_chase))
+} 
+
+```
+
+
+```{r}
+
+results$time_point = factor(results$time_point, levels = c("E12", "E16", "P00", "E14"))
+
+
+
+cols = c("#ff8a12",  "#624185")
+
+pdf("../../output/stacked_bars_proportion_neurogenic_gliogenic_2_clust.pdf", width = 5, height = 3)
+p1 = ggplot(results, aes(fill=cell_type, y=proportion, x=time_point)) + 
+    geom_bar(position="fill", stat="identity") + theme(text = element_text(family = "Helvetica", color = "black",size = 15)) + theme_classic() + xlab("Time Point") + ylab("Proportion") + theme(legend.title = element_blank()) + theme(axis.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(legend.text = element_text(family = "Helvetica", color = "black",size = 15)) + theme(axis.text.x = element_text(angle = 90)) + theme(axis.title=element_text(size=15,family = "Helvetica", color = "black")) +  scale_fill_manual(values = cols)
+
+print(p1)
+dev.off()
+```
+```{r}
+results$time_point[results$time_point == "E12"] = "E13.5"
+results$time_point[results$time_point == "E14"] = "E12.5toE15.5"
+results$time_point[results$time_point == "E16"] = "E17.5"
+results$time_point[results$time_point == "P00"] = "P1"
+```
+
+
+```{r}
+results["cell_type"][results["cell_type"] == "Neural character"] = "Neuronal"
+results["cell_type"][results["cell_type"] == "Progenitor/glial character"] = "Progenitor"
+```
+
+```{r}
+write.csv(results, "../../source_data/Fig_1d.csv", row.names = F)
+```
+
+
+

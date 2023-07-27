@@ -1,0 +1,114 @@
+---
+title: "Plot gene modules over neural crest data"
+output: html_notebook
+---
+
+```{r}
+library(Seurat)
+library(gplots)
+library(RColorBrewer)
+```
+
+
+```{r}
+data = readRDS("../../output/neural_crest/neural_crest.rds")
+```
+
+```{r}
+DimPlot(data,group.by = "seg")
+```
+```{r}
+data$seg[is.na(data$seg)] = "grey"
+```
+
+```{r}
+data$seg = factor(data$seg, levels = c("grey","pink", "yellow", "red","green","purple","blue","cyan"))
+```
+
+```{r}
+DimPlot(data,group.by = "seg")
+```
+
+```{r}
+#read antler object
+m = readRDS("../../output/gene_modules/all_data/antler_obj.RDS")
+
+
+genes = m$topCorr_DR$genemodules[[16]]
+
+modules = m$topCorr_DR$genemodules
+```
+
+```{r}
+lengths = c()
+for (module in modules){
+  lengths = c(lengths, length(module))
+  if (length(module) == 2){
+    print(module)
+  }
+}
+```
+
+
+```{r}
+colour_palette = c("#c4c4c4","#e60ebf", "#f3d715", "#da1209ff","#48fc13","#4b05e5","#1599f5","#16f0e9ff")
+#colour_palette = c("pink", "yellow", "red","green","purple","blue","cyan")
+```
+
+
+
+```{r}
+make_heatmap = function(module){
+  genes = m$topCorr_DR$genemodules[[module]]
+  mat = GetAssayData(object = data)
+  genes = genes[genes %in% rownames(mat)]
+  mat = as.matrix(mat[genes,])
+  mat_norm = t(scale(t(mat)))
+  mat = mat[,order(data$seg)]
+  extreme = (max(abs(min(mat)),abs(max(mat))))
+  breaks = seq(from=-extreme, to=max(extreme), length.out=100)
+  color.palette = colorRampPalette(c("blue", "white", "red"))
+  png(paste0("../../output/neural_crest/nc_heatmap_module_", module,"_not_centered.png"), height = 8, width = 5, units = "in", res = 300)
+    p = heatmap.2(mat,Colv = F,Rowv = T, col=color.palette, symbreak=TRUE, trace='none', breaks = breaks,labCol = F,cexRow = 0.5,ColSideColors=colour_palette[data$seg[order(data$seg)]])
+    print(p)
+  dev.off()
+}
+```
+
+```{r}
+for (module in c(16,17,18,83,81,79,71,74,75,78)){
+  make_heatmap(module)
+}
+```
+```{r}
+
+mat = GetAssayData(object = data)
+mat = as.matrix(mat)
+#read in gene modules
+m = readRDS("../../output/gene_modules/all_data/antler_obj.RDS")
+modules = list()
+for (i in 1:length(m$topCorr_DR$genemodules)){
+        modules[[i]] = m$topCorr_DR$genemodules[[i]][m$topCorr_DR$genemodules[[i]] %in% rownames(mat)]
+}
+markers = c(modules[[16]],modules[[17]],modules[[18]],modules[[83]],modules[[81]],modules[[79]],modules[[71]],modules[[74]],modules[[75]],modules[[78]])
+colour_code = c(rep(1, length(modules[[16]])),rep(2, length(modules[[17]])),rep(3, length(modules[[18]])) ,rep(4, length(modules[[83]])), rep(5, length(modules[[81]])) ,rep(6, length(modules[[79]])), rep(7, length(modules[[71]])) ,rep(8, length(modules[[74]])) , rep(9, length(modules[[75]])),rep(10, length(modules[[78]])))
+
+  mat = mat[markers,]
+  
+  mat_norm = t(scale(t(mat)))
+  
+  
+  mat = mat[,order(data$seg)]
+  
+  
+  extreme = (max(abs(min(mat)),abs(max(mat))))
+  breaks = seq(from=-extreme, to=max(extreme), length.out=100)
+  
+  color.palette = colorRampPalette(c("blue", "white", "red"))
+
+  png(paste0("../../output/neural_crest/nc_td_modules_not_centered.png"), height = 8, width = 5, units = "in", res = 300)
+    p = heatmap.2(mat,Colv = F,Rowv = F, col=color.palette, symbreak=TRUE, trace='none', breaks = breaks,labCol = F,cexRow = 0.5,RowSideColors = colour_palette_modules[colour_code],ColSideColors=colour_palette[data$seg[order(data$seg)]])
+    print(p)
+  dev.off()
+```
+
